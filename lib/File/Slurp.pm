@@ -15,21 +15,27 @@ use vars qw( %EXPORT_TAGS @EXPORT_OK $VERSION  @EXPORT) ;
 #@EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 @EXPORT = ( @{ $EXPORT_TAGS{'all'} } );
 
-$VERSION = '9999.02';
-
+$VERSION = '9999.03';
 
 sub read_file {
 
 	my( $file_name, %args ) = @_ ;
 
+# set the buffer to either the passed in one or ours and init it to the null
+# string
+
 	my $buf ;
 	my $buf_ref = $args{'buf_ref'} || \$buf ;
-
 	${$buf_ref} = '' ;
 
 	my( $read_fh, $size_left, $blk_size ) ;
 
+# check if we are reading from a handle (glob ref or IO:: object)
+
 	if ( ref $file_name ) {
+
+# slurping a handle so use it and don't open anything.
+# set the block size so we know it is a handle and read that amount
 
 		$read_fh = $file_name ;
 		$blk_size = $args{'blk_size'} || 1024 * 1024 ;
@@ -37,8 +43,12 @@ sub read_file {
 	}
 	else {
 
+# a regular file. set the sysopne mode
+
 		my $mode = O_RDONLY ;
 		$mode |= O_BINARY if $args{'binmode'} ;
+
+# open the file and handle any error
 
 		$read_fh = gensym ;
 		unless ( sysopen( $read_fh, $file_name, $mode ) ) {
@@ -46,19 +56,31 @@ sub read_file {
 			goto &error ;
 		}
 
+# get the size of the file for use in the read loop
+
 		$size_left = -s $read_fh ;
 	}
 
+# infinite read loop. we exit when we are done slurping
+
 	while( 1 ) {
+
+# do the read and see how much we got
 
 		my $read_cnt = sysread( $read_fh, ${$buf_ref},
 				$size_left, length ${$buf_ref} ) ;
 
 		if ( defined $read_cnt ) {
 
+# good read. see if we hit EOF (nothing left to read)
+
 			last if $read_cnt == 0 ;
+
+# loop if we are slurping a handle. we don't track $size_left then.
+
 			next if $blk_size ;
 
+# count down how much we read and loop if we have more to read.
 			$size_left -= $read_cnt ;
 			last if $size_left <= 0 ;
 			next ;
@@ -70,23 +92,26 @@ sub read_file {
 		goto &error ;
 	}
 
-# handle array ref
+# this is the 5 returns in a row. each handles one possible
+# combination of context and requested return type
+
+# handle wanting to return an array ref of lines
 
 	return [ split( m|(?<=$/)|, ${$buf_ref} ) ] if $args{'array_ref'}  ;
 
-# handle list context
+# handle wanting a list of lines (normal list context)
 
 	return split( m|(?<=$/)|, ${$buf_ref} ) if wantarray ;
 
-# handle scalar ref
+# handle wanting to return an scalar ref to the slurped text
 
 	return $buf_ref if $args{'scalar_ref'} ;
 
-# handle scalar context
+# handle wanting a scalar with the slurped text (normal scalar context)
 
 	return ${$buf_ref} if defined wantarray ;
 
-# handle void context (return scalar by buffer reference)
+# handle when a buffer by buffer reference was passed in (normal void context)
 
 	return ;
 }
@@ -95,46 +120,68 @@ sub write_file {
 
 	my $file_name = shift ;
 
+# get the optional argument hash ref from @_ or an empty hash ref.
+
 	my $args = ( ref $_[0] eq 'HASH' ) ? shift : {} ;
 
 	my( $buf_ref, $write_fh, $no_truncate, $orig_file_name ) ;
 
-# get the buffer ref - either passed by name or first data arg or autovivified
-# ${$buf_ref} will have the data after this
+# get the buffer ref - it depends on how the data is passed into write_file
+# after this if/else $buf_ref will have a scalar ref to the data.
 
 	if ( ref $args->{'buf_ref'} eq 'SCALAR' ) {
+
+# a scalar ref passed in %args has the data
 
 		$buf_ref = $args->{'buf_ref'} ;
 	}
 	elsif ( ref $_[0] eq 'SCALAR' ) {
 
+# the first value in @_ is the scalar ref to the data
+
 		$buf_ref = shift ;
 	}
 	elsif ( ref $_[0] eq 'ARRAY' ) {
+
+# the first value in @_ is the array ref to the data so join it.
 
 		${$buf_ref} = join '', @{$_[0]} ;
 	}
 	else {
 
+# good old @_ has all the data so join it.
+
 		${$buf_ref} = join '', @_ ;
 	}
 
+# see if we were passed a open handle to spew to.
+
 	if ( ref $file_name ) {
+
+# we have a handle. make sure we don't call truncate on it.
 
 		$write_fh = $file_name ;
 		$no_truncate = 1 ;
 	}
 	else {
 
+# spew to regular file.
+
 		if ( $args->{'atomic'} ) {
 
+# in atomic mode, we spew to a temp file so make one and save the original
+# file name.
 			$orig_file_name = $file_name ;
 			$file_name .= ".$$" ;
 		}
 
+# set the mode for the sysopen
+
 		my $mode = O_WRONLY | O_CREAT ;
 		$mode |= O_BINARY if $args->{'binmode'} ;
 		$mode |= O_APPEND if $args->{'append'} ;
+
+# open the file and handle any error.
 
 		$write_fh = gensym ;
 		unless ( sysopen( $write_fh, $file_name, $mode ) ) {
@@ -144,28 +191,42 @@ sub write_file {
 
 	}
 
+# get the size of how much we are writing and init the offset into that buffer
+
 	my $size_left = length( ${$buf_ref} ) ;
 	my $offset = 0 ;
 
+# loop until we have no more data left to write
+
 	do {
+
+# do the write and track how much we just wrote
+
 		my $write_cnt = syswrite( $write_fh, ${$buf_ref},
 				$size_left, $offset ) ;
 
 		unless ( defined $write_cnt ) {
 
+# the write failed
 			@_ = ( $args, "write_file '$file_name' - syswrite: $!");
 			goto &error ;
 		}
+
+# track much left to write and where to write from in the buffer
 
 		$size_left -= $write_cnt ;
 		$offset += $write_cnt ;
 
 	} while( $size_left > 0 ) ;
 
+# we truncate regular files in case we overwrite a long file with a shorter file
+
 	truncate( $write_fh,
 		  sysseek( $write_fh, 0, SEEK_CUR ) ) unless $no_truncate ;
 
 	close( $write_fh ) ;
+
+# handle the atomic mode - move the temp file to the original filename.
 
 	rename( $file_name, $orig_file_name ) if $args->{'atomic'} ;
 
@@ -183,31 +244,59 @@ sub write_file {
 
 sub append_file {
 
+# get the optional args hash ref
 	my $args = $_[1] ;
 	if ( ref $args eq 'HASH' ) {
+
+# we were passed an args ref so just mark the append mode
+
 		$args->{append} = 1 ;
 	}
 	else {
 
+# no args hash so insert one with the append mode
+
 		splice( @_, 1, 0, { append => 1 } ) ;
 	}
-	
+
+# magic goto the main write_file sub. this overlays the sub without touching
+# the stack or @_
+
 	goto &write_file
 }
 
+# simple wrapper around opendir/readdir
+
 sub read_dir {
+
 	my ($dir, %args ) = @_;
+
+# this handle will be destroyed upon return
 
 	local(*DIRH);
 
+# open the dir
+
 	if ( opendir( DIRH, $dir ) ) {
+
+# return all the directory entries but . and ..
 		return grep( $_ ne "." && $_ ne "..", readdir(DIRH));
 	}
 
-	@_ = ( \%args, "read_dir '$dir' - opendir: $!" ) ; goto &error ;
+# handle the error
 
-	return undef ;
+	@_ = ( \%args, "read_dir '$dir' - opendir: $!" ) ;
+	goto &error ;
 }
+
+# error handling section
+#
+# all the error handling uses magic goto so the caller will get the
+# error message as if from their code and not this module. if we just
+# did a call on the error code, the carp/croak would report it from
+# this module since the error sub is one level down on the call stack
+# from read_file/write_file/read_dir.
+
 
 my %err_func = (
 	carp => \&carp,
@@ -218,13 +307,21 @@ sub error {
 
 	my( $args, $err_msg ) = @_ ;
 
-#print $err_msg ;
+# get the error function to use
 
  	my $func = $err_func{ $args->{'err_mode'} || 'croak' } ;
 
+# if we didn't find it in our error function hash, they must have set
+# it to quiet and we don't do anything.
+
 	return unless $func ;
 
+# call the carp/croak function
+
 	$func->($err_msg) ;
+
+# return a hard undef (in list context this will be a single value of
+# undef which is not a legal in-band value)
 
 	return undef ;
 }
@@ -274,11 +371,25 @@ behavior of the call. Other than binmode the options all control how
 the slurped file is returned to the caller.
 
 If the first argument is a file handle reference or I/O object (if ref
-is true), then that handle is slurped in. This mode is supported so you
-slurp handles such as <DATA>, \*STDIN. See the test handle.t for an
-example that does C<open( '-|' )> and child process spews data to the
-parant which slurps it in.  All of the options that control how the
-data is returned to the caller still work in this case.
+is true), then that handle is slurped in. This mode is supported so
+you slurp handles such as C<DATA>, C<STDIN>. See the test handle.t
+for an example that does C<open( '-|' )> and child process spews data
+to the parant which slurps it in.  All of the options that control how
+the data is returned to the caller still work in this case.
+
+NOTE: the C<DATA> handle works with C<read_file> but it needs a small
+workaround. The issue is that DATA is opened with buffered I/O and
+read_file doesn't use that. So the buffered DATA handle is at the
+correct place but the unbuffered one is at the real EOF. The
+workaround is to get the buffered seek location and set the unbuffered
+seek pointer like this:
+
+	use Fcntl qw( :seek ) ;
+	sysseek( DATA, tell( \*DATA ), SEEK_SET ) ;
+	my $slurp_text = read_file( \*DATA ) ;
+
+See the t/handle.t test for more examples of this.
+
 
 The options are:
 

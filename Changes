@@ -11,3 +11,8 @@ Revision history for Perl extension File::FastSlurp.
 	- added support for atomic spewing
 	- added new test stdin.t for the fileno/ref change
 	- added new test inode.t to test atomic spewing
+
+9999.02  Mon Dec 22 01:44:43 EST 2003
+	- fixed DATA handle bugs in t/handle.t on osx (should be fixed
+	  on BSD as well)
+	- added more comments to code
