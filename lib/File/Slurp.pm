@@ -1,7 +1,7 @@
 
 package File::Slurp;
 
-# Copyright (C) 1994, 1995, 1996  David Muir Sharnoff
+# Copyright (C) 1994, 1995, 1996, 1998, 2001  David Muir Sharnoff
 
 require Exporter;
 @ISA = qw(Exporter);
@@ -10,12 +10,13 @@ require Exporter;
 use Carp;
 
 use vars qw($VERSION);
-$VERSION = 96.042202;
+$VERSION = 2001.1103;
 
 sub read_file
 {
 	my ($file) = @_;
 
+	local($/) = wantarray ? $/ : undef;
 	local(*F);
 	my $r;
 	my (@r);
@@ -24,8 +25,8 @@ sub read_file
 	@r = <F>;
 	close(F);
 
-	return @r if wantarray;
-	return join("",@r);
+	return $r[0] unless wantarray;
+	return @r;
 }
 
 sub write_file
@@ -134,6 +135,11 @@ of an update.
 
 read_dir() returns all of the entries in a directory except for "."
 and "..".  It croaks if it cannot open the directory.
+
+=head1 LICENSE
+
+Do what you will with this, but don't claim it's your's and don't
+put me at risk of being sued.
 
 =head1 AUTHOR
 

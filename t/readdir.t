@@ -1,8 +1,7 @@
-#!/usr/local/bin/perl
+#!/usr/bin/perl -w -I.
 
 $tmp = "/tmp/rdt$$";
 
-BEGIN { unshift(@INC, "."); }
 use File::Slurp;
 
 print "1..4\n";
