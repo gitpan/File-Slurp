@@ -1,4 +1,4 @@
-#!/usr/bin/perl5.00502 -I.
+#!/usr/bin/perl -I.
 
 # try to honor possible tempdirs
 $tmp = $ENV{'TMPDIR'} || $ENV{'TMP'} || $ENV{'TEMP'} || "/tmp";
@@ -22,13 +22,13 @@ use File::Slurp;
 if (&read_file($tmp) eq $long) {print "ok 1\n";} else {print "not ok 1\n";}
 
 @x = &read_file($tmp);
-@y = split("\n", $long);
+@y = grep( $_ ne '', split(/(.*?\n)/, $long));
 while (@x && @y) {
 	last unless $x[0] eq $y[0];
 	shift @x;
 	shift @y;
 }
-if (@x == @y) { print "ok 2\n";} else {print "not ok 2\n"}
+if (@x == @y && (@x ? $x[0] eq $y[0] : 1)) { print "ok 2\n";} else {print "not ok 2\n"}
 
 &append_file($tmp, $short);
 if (&read_file($tmp) eq "$long$short") {print "ok 3\n";} else {print "not ok 3\n";}
