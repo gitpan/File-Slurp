@@ -26,13 +26,7 @@ for $x (@x) {
 	&write_file("$tmp/$x", "foo\n");
 }
 
-if ($] > 5.002) {
-	@y = sort read_dir($tmp);
-} else {
-	# bug in 5.002
-	@y = read_dir($tmp);
-	@y = sort @y;
-}
+@y = sort &read_dir($tmp);
 
 while (@x && @y) {
 	last unless $x[0] eq $y[0];

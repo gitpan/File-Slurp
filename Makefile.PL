@@ -2,7 +2,7 @@
 use ExtUtils::MakeMaker;
 
 WriteMakefile( 
-	'VERSION' => 96.042202,
+	'VERSION' => 98.071901,
 	'NAME'	  => 'File::Slurp',
 	'dist' => { COMPRESS=>"gzip", SUFFIX=>"gz" },
 	);
