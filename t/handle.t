@@ -22,7 +22,14 @@ BEGIN{
 	use_ok( 'File::Slurp', ) ;
 }
 
-test_data_slurp() ;
+if ( $^O eq 'darwin' ) {
+
+	ok( 1, "Skip slurp of DATA on OSX/darwin" ) for 1 .. 2 ;
+}
+else {
+
+	test_data_slurp() ;
+}
 
 #test_fork_pipe_slurp() ;
 
@@ -71,10 +78,12 @@ sub test_data_slurp {
 	my $data_text = join( '', @data_lines ) ;
 
 	seek( DATA, $data_seek, SEEK_SET ) || die "seek $!" ;
+
 	my $slurp_text = read_file( \*DATA ) ;
 	is( $slurp_text, $data_text, 'scalar slurp DATA' ) ;
 
 	seek( DATA, $data_seek, SEEK_SET ) || die "seek $!" ;
+
 	my @slurp_lines = read_file( \*DATA ) ;
 	ok( eq_array( \@data_lines, \@slurp_lines ), 'list slurp of DATA' ) ;
 }

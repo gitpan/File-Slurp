@@ -15,7 +15,7 @@ use vars qw( %EXPORT_TAGS @EXPORT_OK $VERSION  @EXPORT) ;
 #@EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 @EXPORT = ( @{ $EXPORT_TAGS{'all'} } );
 
-$VERSION = '9999.01';
+$VERSION = '9999.02';
 
 
 sub read_file {
@@ -29,7 +29,7 @@ sub read_file {
 
 	my( $read_fh, $size_left, $blk_size ) ;
 
-	if ( defined( fileno( $file_name ) ) ) {
+	if ( ref $file_name ) {
 
 		$read_fh = $file_name ;
 		$blk_size = $args{'blk_size'} || 1024 * 1024 ;
@@ -39,7 +39,6 @@ sub read_file {
 
 		my $mode = O_RDONLY ;
 		$mode |= O_BINARY if $args{'binmode'} ;
-
 
 		$read_fh = gensym ;
 		unless ( sysopen( $read_fh, $file_name, $mode ) ) {
@@ -98,7 +97,7 @@ sub write_file {
 
 	my $args = ( ref $_[0] eq 'HASH' ) ? shift : {} ;
 
-	my( $buf_ref, $write_fh, $no_truncate ) ;
+	my( $buf_ref, $write_fh, $no_truncate, $orig_file_name ) ;
 
 # get the buffer ref - either passed by name or first data arg or autovivified
 # ${$buf_ref} will have the data after this
@@ -120,12 +119,18 @@ sub write_file {
 		${$buf_ref} = join '', @_ ;
 	}
 
-	if ( defined( fileno( $file_name ) ) ) {
+	if ( ref $file_name ) {
 
 		$write_fh = $file_name ;
 		$no_truncate = 1 ;
 	}
 	else {
+
+		if ( $args->{'atomic'} ) {
+
+			$orig_file_name = $file_name ;
+			$file_name .= ".$$" ;
+		}
 
 		my $mode = O_WRONLY | O_CREAT ;
 		$mode |= O_BINARY if $args->{'binmode'} ;
@@ -161,6 +166,8 @@ sub write_file {
 		  sysseek( $write_fh, 0, SEEK_CUR ) ) unless $no_truncate ;
 
 	close( $write_fh ) ;
+
+	rename( $file_name, $orig_file_name ) if $args->{'atomic'} ;
 
 	return 1 ;
 }
@@ -266,13 +273,12 @@ arguments are key/value pairs which are optional and which modify the
 behavior of the call. Other than binmode the options all control how
 the slurped file is returned to the caller.
 
-If the first argument is a file handle reference or I/O object (if
-fileno returns a defined value), then that handle is slurped in. This
-mode is supported so you slurp handles such as <DATA>, \*STDIN. See
-the test handle.t for an example that does C<open( '-|' )> and child
-process spews data to the parant which slurps it in.  All of the
-options that control how the data is returned to the caller still work
-in this case.
+If the first argument is a file handle reference or I/O object (if ref
+is true), then that handle is slurped in. This mode is supported so you
+slurp handles such as <DATA>, \*STDIN. See the test handle.t for an
+example that does C<open( '-|' )> and child process spews data to the
+parant which slurps it in.  All of the options that control how the
+data is returned to the caller still work in this case.
 
 The options are:
 
@@ -366,13 +372,12 @@ files).
   write_file( 'filename', \@lines ) ;
   write_file( 'filename', @lines ) ;
 
-If the first argument is a file handle reference or I/O object (if
-fileno returns a defined value), then that handle is slurped in. This
-mode is supported so you spew to handles such as \*STDOUT. See the
-test handle.t for an example that does C<open( '-|' )> and child
-process spews data to the parant which slurps it in.  All of the
-options that control how the data is passes into C<write_file> still
-work in this case.
+If the first argument is a file handle reference or I/O object (if ref
+is true), then that handle is slurped in. This mode is supported so
+you spew to handles such as \*STDOUT. See the test handle.t for an
+example that does C<open( '-|' )> and child process spews data to the
+parant which slurps it in.  All of the options that control how the
+data is passes into C<write_file> still work in this case.
 
 The options are:
 
@@ -397,6 +402,16 @@ equivilent:
 	write_file( $bin_file, { buf_ref => \$buffer } ) ;
 	write_file( $bin_file, \$buffer ) ;
 	write_file( $bin_file, $buffer ) ;
+
+=head3 atomic
+
+If you set this boolean option, the file will be written to in an
+atomic fashion. A temporary file name is created by appending the pid
+($$) to the file name argument and that file is spewed to. After the
+file is closed it is renamed to the original file name (and rename is
+an atomic operation on most OS's). If the program using this were to
+crash in the middle of this, then the file with the pid suffix could
+be left behind.
 
 =head3 append
 

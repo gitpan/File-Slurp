@@ -78,7 +78,7 @@ modules which do this but who needs them for simple formats? Just slurp
 in the file and do a single parse to grab all the key/value pairs.
 
 	my $text = read_file( $file ) ;
-	my %config = $test =~ /^(\w+)=(.+)$/mg ;
+	my %config = $text =~ /^(\w+)=(.+)$/mg ;
 
 That matches a key which starts a line (anywhere inside the string
 because of the C</m> modifier), the '=' char and the text to the end of the
@@ -98,7 +98,7 @@ template file, setting up a template hash and doing this one line:
 That only works if the entire file was slurped in. With a little
 extra work it can handle chunks of text to be expanded:
 
-	$text =~ s/<%(\w+)_START%>(.+)<%\1_END%>/ template($1, $2)/sge ;
+	$text =~ s/<%(\w+)_START%>(.+?)<%\1_END%>/ template($1, $2)/sge ;
 
 Just supply a C<template> sub to expand the text between the markers and
 you have yourself a simple system with minimal code. Note that this will

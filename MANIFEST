@@ -7,6 +7,8 @@ t/error.t
 t/large.t
 t/handle.t
 t/original.t
+t/stdin.t
+t/inode.t
 t/readdir.t
 extras/slurp_bench.pl
 extras/slurp_article.pod

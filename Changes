@@ -1,6 +1,13 @@
 Revision history for Perl extension File::FastSlurp.
 
-0.01  Mon Sep  1 00:20:56 2003
+9999.01  Mon Sep  1 00:20:56 2003
 	- original version; created by h2xs 1.21 with options
 		-AX -n File::FastSlurp
 
+9999.02  Wed Dec 17 03:40:49 EST 2003
+	- skip DATA test in handle.t on OSX (bug in perl with sysread on DATA)
+	- changed checking if file handle from fileno to ref
+		from Randal Schwartz <merlyn@stonehenge.com>
+	- added support for atomic spewing
+	- added new test stdin.t for the fileno/ref change
+	- added new test inode.t to test atomic spewing
