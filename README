@@ -1,23 +1,25 @@
-This is File::Slurp Version 2001.1103, by David Muir Sharnoff <muir@idiom.com>
+File/FastSlurp version 0.01
+===========================
 
-File::Slurp just reads and writes entire files with single commands:
+This module provides subs that allow you to read or write entire files
+with a simple call. It also has a sub that will read the list of
+filenames in a directory.
 
-	read_file
-	write_file
-	overwrite_file
-	append_file
+In the extras/ directory you can read an article (slurp_article.pod)
+about file slurping and also run a benchmark (slurp_bench.pl) that
+compares many ways of slurping/spewing files.
 
-Install it with the following commands:
+INSTALLATION
 
-	perl Makefile.PL
-	make
-	make test
-	make install
+To install this module type the following:
 
-Copyright (C) 1996, 1998, 2001 David Muir Sharnoff.  License hereby
-granted for anyone to use, modify or redistribute this module at 
-their own risk.  Please feed useful changes back to muir@idiom.com.
+   perl Makefile.PL
+   make
+   make test
+   make install
 
+COPYRIGHT AND LICENCE
 
+Copyright (C) 2003 Uri Guttman <uri@stemsystems.com>
 
-
+Licensed the same as Perl.

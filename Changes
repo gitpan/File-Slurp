@@ -1,0 +1,6 @@
+Revision history for Perl extension File::FastSlurp.
+
+0.01  Mon Sep  1 00:20:56 2003
+	- original version; created by h2xs 1.21 with options
+		-AX -n File::FastSlurp
+

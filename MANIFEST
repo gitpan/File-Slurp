@@ -1,7 +1,12 @@
-MANIFEST
-CHANGELOG
-Makefile.PL
-README
+Changes
 lib/File/Slurp.pm
-t/slurp.t
+Makefile.PL
+MANIFEST
+README
+t/error.t
+t/large.t
+t/handle.t
+t/original.t
 t/readdir.t
+extras/slurp_bench.pl
+extras/slurp_article.pod
