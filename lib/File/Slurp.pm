@@ -15,7 +15,7 @@ use vars qw( %EXPORT_TAGS @EXPORT_OK $VERSION  @EXPORT) ;
 #@EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 @EXPORT = ( @{ $EXPORT_TAGS{'all'} } );
 
-$VERSION = '0.01';
+$VERSION = '9999.01';
 
 
 sub read_file {
