@@ -6,6 +6,9 @@ README
 t/error.t
 t/large.t
 t/handle.t
+t/data_scalar.t
+t/data_list.t
+t/paragraph.t
 t/original.t
 t/stdin.t
 t/inode.t

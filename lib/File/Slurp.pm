@@ -7,15 +7,14 @@ use Fcntl qw( :DEFAULT :seek ) ;
 use Symbol ;
 
 use base 'Exporter' ;
-use vars qw( %EXPORT_TAGS @EXPORT_OK $VERSION  @EXPORT) ;
+use vars qw( %EXPORT_TAGS @EXPORT_OK $VERSION @EXPORT ) ;
 
 %EXPORT_TAGS = ( 'all' => [
 	qw( read_file write_file overwrite_file append_file read_dir ) ] ) ;
 
-#@EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 @EXPORT = ( @{ $EXPORT_TAGS{'all'} } );
 
-$VERSION = '9999.04';
+$VERSION = '9999.06';
 
 sub read_file {
 
@@ -40,10 +39,24 @@ sub read_file {
 		$read_fh = $file_name ;
 		$blk_size = $args{'blk_size'} || 1024 * 1024 ;
 		$size_left = $blk_size ;
+
+# DEEP DARK MAGIC. this checks the UNTAINT IO flag of a
+# glob/handle. only the DATA handle is untainted (since it is from
+# trusted data in the source file). this allows us to test if this is
+# the DATA handle and then to do a sysseek to make sure it gets
+# slurped correctly. on some systems, the buffered i/o pointer is not
+# left at the same place as the fd pointer. this sysseek makes them
+# the same so slurping with sysread will work.
+
+		require B ;
+		if ( B::svref_2object( $read_fh )->IO->IoFLAGS & 16 ) {
+			sysseek( $read_fh, tell( $read_fh ), SEEK_SET ) ||
+				croak "sysseek $!" ;
+		}
 	}
 	else {
 
-# a regular file. set the sysopne mode
+# a regular file. set the sysopen mode
 
 		my $mode = O_RDONLY ;
 		$mode |= O_BINARY if $args{'binmode'} ;
@@ -97,11 +110,18 @@ sub read_file {
 
 # handle wanting to return an array ref of lines
 
-	return [ split( m|(?<=$/)|, ${$buf_ref} ) ] if $args{'array_ref'}  ;
+	my $sep = $/ ;
+	$sep = '\n\n+' if defined $sep && $sep eq '' ;
+
+#	return [ split( m|(?<=$sep)|, ${$buf_ref} ) ] if $args{'array_ref'}  ;
+	return [ length(${$buf_ref}) ? ${$buf_ref} =~ /(.*?$sep|.+)/sg : () ]
+		if $args{'array_ref'}  ;
 
 # handle wanting a list of lines (normal list context)
 
-	return split( m|(?<=$/)|, ${$buf_ref} ) if wantarray ;
+#	return split( m|(?<=$sep)|, ${$buf_ref} ) if wantarray ;
+	return length(${$buf_ref}) ? ${$buf_ref} =~ /(.*?$sep|.+)/sg : ()
+		if wantarray ;
 
 # handle wanting to return an scalar ref to the slurped text
 
@@ -350,17 +370,16 @@ flexible ways to pass in or get the file contents and to be very
 efficient.  There is also a sub to read in all the files in a
 directory other than C<.> and C<..>
 
-Note that these slurp/spew subs work only for files and not for pipes
-or stdio. If you want to slurp the latter, use the standard techniques
-such as setting $/ to undef, reading <> in a list context, or printing
-all you want to STDOUT.
+Note that these slurp/spew subs work only for files, pipes and
+sockets, and stdio.
 
 =head2 B<read_file>
 
 This sub reads in an entire file and returns its contents to the
 caller. In list context it will return a list of lines (using the
-current value of $/ as the separator. In scalar context it returns the
-entire file as a single scalar.
+current value of $/ as the separator including support for paragraph
+mode when it is set to ''). In scalar context it returns the entire
+file as a single scalar.
 
   my $text = read_file( 'filename' ) ;
   my @lines = read_file( 'filename' ) ;
@@ -377,19 +396,9 @@ for an example that does C<open( '-|' )> and child process spews data
 to the parant which slurps it in.  All of the options that control how
 the data is returned to the caller still work in this case.
 
-NOTE: the C<DATA> handle works with C<read_file> but it needs a small
-workaround. The issue is that DATA is opened with buffered I/O and
-read_file doesn't use that. So the buffered DATA handle is at the
-correct place but the unbuffered one is at the real EOF. The
-workaround is to get the buffered seek location and set the unbuffered
-seek pointer like this:
-
-	use Fcntl qw( :seek ) ;
-	sysseek( DATA, tell( \*DATA ), SEEK_SET ) ;
-	my $slurp_text = read_file( \*DATA ) ;
-
-See the t/handle.t test for more examples of this.
-
+NOTE: as of version 9999.06, read_file works correctly on the C<DATA>
+handle. It used to need a sysseek workaround but that is now handled
+when needed by the module itself
 
 The options are:
 

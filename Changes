@@ -20,3 +20,18 @@ Revision history for Perl extension File::FastSlurp.
 9999.04  Mon Feb 23 14:20:52 EST 2004
 	- fixed DATA handle bug in t/handle.t (not seen on most OS's)
 	  Thanks to James Willmore <jwillmore@adelphia.net>
+
+9999.05  Tue Feb 24 21:14:55 EST 2004
+	- skip handle tests where socketpair is not supported (pre 5.8
+	  on windows)
+	  Thanks to Mike Arms <marms@sandia.gov>
+
+9999.06  Mon Sep 20 01:57:00 EDT 2004
+	- Slurping the DATA handle now works without the workaround.
+	  tests are in t/data_scalar.t and t/data_list.t
+        - Paragraph mode in read_file is supported. As with <> when $/
+	  (input record separator) is set to '', then the input file is
+	  split on multiple newlines (/\n\n+/).
+	  Thanks to Geoffrey Leach <geoff@direcway.com>
+
+
