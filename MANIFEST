@@ -12,3 +12,4 @@ t/inode.t
 t/readdir.t
 extras/slurp_bench.pl
 extras/slurp_article.pod
+META.yml                                 Module meta-data (added by MakeMaker)

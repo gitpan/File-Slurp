@@ -12,7 +12,11 @@ Revision history for Perl extension File::FastSlurp.
 	- added new test stdin.t for the fileno/ref change
 	- added new test inode.t to test atomic spewing
 
-9999.02  Mon Dec 22 01:44:43 EST 2003
+9999.03  Mon Dec 22 01:44:43 EST 2003
 	- fixed DATA handle bugs in t/handle.t on osx (should be fixed
 	  on BSD as well)
 	- added more comments to code
+
+9999.04  Mon Feb 23 14:20:52 EST 2004
+	- fixed DATA handle bug in t/handle.t (not seen on most OS's)
+	  Thanks to James Willmore <jwillmore@adelphia.net>

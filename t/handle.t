@@ -67,16 +67,14 @@ sub test_data_slurp {
 
 	my $data_seek = tell( \*DATA );
 
-	sysseek( \*DATA, $data_seek, SEEK_SET ) || die "seek $!" ;
-	my $slurp_text = read_file( \*DATA ) ;
-
 	my @data_lines = <DATA> ;
 	my $data_text = join( '', @data_lines ) ;
 
+	sysseek( \*DATA, $data_seek, SEEK_SET ) || die "seek $!" ;
+	my $slurp_text = read_file( \*DATA ) ;
 	is( $slurp_text, $data_text, 'scalar slurp DATA' ) ;
 
 	sysseek( \*DATA, $data_seek, SEEK_SET ) || die "seek $!" ;
-
 	my @slurp_lines = read_file( \*DATA ) ;
 	ok( eq_array( \@data_lines, \@slurp_lines ), 'list slurp of DATA' ) ;
 }
