@@ -14,7 +14,7 @@ use vars qw( %EXPORT_TAGS @EXPORT_OK $VERSION @EXPORT ) ;
 
 @EXPORT = ( @{ $EXPORT_TAGS{'all'} } );
 
-$VERSION = '9999.06';
+$VERSION = '9999.07';
 
 sub read_file {
 
@@ -50,6 +50,9 @@ sub read_file {
 
 		require B ;
 		if ( B::svref_2object( $read_fh )->IO->IoFLAGS & 16 ) {
+
+# set the seek position to the current tell.
+
 			sysseek( $read_fh, tell( $read_fh ), SEEK_SET ) ||
 				croak "sysseek $!" ;
 		}
@@ -72,6 +75,12 @@ sub read_file {
 # get the size of the file for use in the read loop
 
 		$size_left = -s $read_fh ;
+
+		unless( $size_left ) {
+
+			$blk_size = $args{'blk_size'} || 1024 * 1024 ;
+			$size_left = $blk_size ;
+		}
 	}
 
 # infinite read loop. we exit when we are done slurping
@@ -240,6 +249,7 @@ sub write_file {
 	} while( $size_left > 0 ) ;
 
 # we truncate regular files in case we overwrite a long file with a shorter file
+# so seek to the current position to get it (same as tell()).
 
 	truncate( $write_fh,
 		  sysseek( $write_fh, 0, SEEK_CUR ) ) unless $no_truncate ;
@@ -587,6 +597,10 @@ It croaks if it cannot open the directory.
 =head2 EXPORT
 
   read_file write_file overwrite_file append_file read_dir
+
+=head2 SEE ALSO
+
+An article on file slurping 
 
 =head1 AUTHOR
 

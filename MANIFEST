@@ -12,6 +12,7 @@ t/paragraph.t
 t/original.t
 t/stdin.t
 t/inode.t
+t/pseudo.t
 t/readdir.t
 extras/slurp_bench.pl
 extras/slurp_article.pod

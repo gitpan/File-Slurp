@@ -215,7 +215,7 @@ still more
 
 enough lines
 
-we can't test long handle slurps from DATA since i would have to type
-too much stuff
+we don't test long handle slurps from DATA since i would have to type
+too much stuff :-)
 
 so we will stop here

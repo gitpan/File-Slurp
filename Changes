@@ -34,4 +34,8 @@ Revision history for Perl extension File::FastSlurp.
 	  split on multiple newlines (/\n\n+/).
 	  Thanks to Geoffrey Leach <geoff@direcway.com>
 
-
+9999.07  Tue Jan 25 01:33:11 EST 2005
+	- Slurping in pseudo files (as in /proc) which show a size of 0
+	  but actually have data works. This seems to be the case on
+	  linux but on Solaris those files show their proper size.
+	  Thanks to Juerd Waalboer <juerd@cpan.org>
