@@ -1,0 +1,16 @@
+
+File::Slurp just reads and writes entire files with single commands:
+
+	read_file
+	write_file
+	overwrite_file
+	append_file
+
+Install it with the following commands:
+
+	perl Makefile.PL
+	make
+	make test
+	make install
+
+

@@ -1,0 +1,6 @@
+MANIFEST
+Makefile.PL
+README
+lib/File/Slurp.pm
+t/slurp.t
+t/readdir.t
