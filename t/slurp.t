@@ -1,4 +1,4 @@
-#!/usr/bin/perl -I.
+#!/usr/bin/perl5.00502 -I.
 
 # try to honor possible tempdirs
 $tmp = $ENV{'TMPDIR'} || $ENV{'TMP'} || $ENV{'TEMP'} || "/tmp";

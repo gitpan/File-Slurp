@@ -1,7 +1,7 @@
 
 package File::Slurp;
 
-# Copyright (C) 1994, 1995, 1996, 1998, 2001  David Muir Sharnoff
+# Copyright (C) 1994-1996, 1998, 2001-2002  David Muir Sharnoff
 
 require Exporter;
 @ISA = qw(Exporter);
@@ -10,7 +10,7 @@ require Exporter;
 use Carp;
 
 use vars qw($VERSION);
-$VERSION = 2002.0305;
+$VERSION = 2002.1031;
 
 sub read_file
 {
@@ -89,7 +89,7 @@ sub read_dir
 
 1;
 
-__DATA__
+__END__
 
 =head1 NAME
 
