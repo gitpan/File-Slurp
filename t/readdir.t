@@ -1,6 +1,8 @@
 #!/usr/bin/perl -w -I.
 
-$tmp = "/tmp/rdt$$";
+# try to honor possible tempdirs
+$tmp = $ENV{'TMPDIR'} || $ENV{'TMP'} || $ENV{'TEMP'} || "/tmp";
+$tmp .= "/rdt$$";
 
 use File::Slurp;
 
@@ -35,8 +37,8 @@ while (@x && @y) {
 
 if (@x == @y) { print "ok 4\n";} else {print "not ok 4\n"}
 
-for $x (@x) {
+for $x ( 'x', 1..23 ) {
 	unlink("$tmp/$x");
 }
-rmdir($tmp);
+rmdir($tmp) || die "rmdir $tmp: $!";
 

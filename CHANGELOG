@@ -1,0 +1,9 @@
+
+= 2002/03/05
+
+Changed the license to make the Debian folks happy.
+Changed the temporary file directory location code in
+the test suite to make the Win32 people happy.
+All changes for this release integrated by 
+Alexander Zangerl <az@snafu.priv.at>.  Thank you!
+

@@ -1,4 +1,5 @@
 MANIFEST
+CHANGELOG
 Makefile.PL
 README
 lib/File/Slurp.pm

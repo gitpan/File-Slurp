@@ -10,7 +10,7 @@ require Exporter;
 use Carp;
 
 use vars qw($VERSION);
-$VERSION = 2001.1103;
+$VERSION = 2002.0305;
 
 sub read_file
 {
@@ -23,7 +23,7 @@ sub read_file
 
 	open(F, "<$file") || croak "open $file: $!";
 	@r = <F>;
-	close(F);
+	close(F) || croak "close $file: $!";
 
 	return $r[0] unless wantarray;
 	return @r;
@@ -83,7 +83,7 @@ sub read_dir
 
 	opendir(D,$d) || croak "opendir $d: $!";
 	@r = grep($_ ne "." && $_ ne "..", readdir(D));
-	closedir(D);
+	closedir(D) || croak "closedir $d: $!";
 	return @r;
 }
 
@@ -138,8 +138,9 @@ and "..".  It croaks if it cannot open the directory.
 
 =head1 LICENSE
 
-Do what you will with this, but don't claim it's your's and don't
-put me at risk of being sued.
+Copyright (C) 1996, 1998, 2001 David Muir Sharnoff.  License hereby
+granted for anyone to use, modify or redistribute this module at 
+their own risk.  Please feed useful changes back to muir@idiom.com.
 
 =head1 AUTHOR
 
