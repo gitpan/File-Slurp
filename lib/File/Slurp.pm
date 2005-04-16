@@ -13,8 +13,14 @@ use vars qw( %EXPORT_TAGS @EXPORT_OK $VERSION @EXPORT ) ;
 	qw( read_file write_file overwrite_file append_file read_dir ) ] ) ;
 
 @EXPORT = ( @{ $EXPORT_TAGS{'all'} } );
+@EXPORT_OK = qw( slurp ) ;
 
-$VERSION = '9999.07';
+$VERSION = '9999.08';
+
+{
+no strict 'refs' ;
+*slurp = \&read_file ;
+}
 
 sub read_file {
 
@@ -295,7 +301,7 @@ sub append_file {
 	goto &write_file
 }
 
-# simple wrapper around opendir/readdir
+# basic wrapper around opendir/readdir
 
 sub read_dir {
 
@@ -305,18 +311,21 @@ sub read_dir {
 
 	local(*DIRH);
 
-# open the dir
+# open the dir and handle any errors
 
-	if ( opendir( DIRH, $dir ) ) {
+	unless ( opendir( DIRH, $dir ) ) {
 
-# return all the directory entries but . and ..
-		return grep( $_ ne "." && $_ ne "..", readdir(DIRH));
+		@_ = ( \%args, "read_dir '$dir' - opendir: $!" ) ;
+		goto &error ;
 	}
 
-# handle the error
+	my @dir_entries = readdir(DIRH) ;
 
-	@_ = ( \%args, "read_dir '$dir' - opendir: $!" ) ;
-	goto &error ;
+	@dir_entries = grep( $_ ne "." && $_ ne "..", @dir_entries )
+		unless $args{'keep_dot_dot'} ;
+
+	return @dir_entries if wantarray ;
+	return \@dir_entries ;
 }
 
 # error handling section
@@ -372,6 +381,11 @@ File::Slurp - Efficient Reading/Writing of Complete Files
 
   write_file( 'filename', @lines ) ;
 
+  use File::Slurp qw( slurp ) ;
+
+  my $text = slurp( 'filename' ) ;
+
+
 =head1 DESCRIPTION
 
 This module provides subs that allow you to read or write entire files
@@ -380,8 +394,8 @@ flexible ways to pass in or get the file contents and to be very
 efficient.  There is also a sub to read in all the files in a
 directory other than C<.> and C<..>
 
-Note that these slurp/spew subs work only for files, pipes and
-sockets, and stdio.
+These slurp/spew subs work for files, pipes and
+sockets, and stdio, pseudo-files, and DATA.
 
 =head2 B<read_file>
 
@@ -410,6 +424,10 @@ NOTE: as of version 9999.06, read_file works correctly on the C<DATA>
 handle. It used to need a sysseek workaround but that is now handled
 when needed by the module itself
 
+You can optionally request that C<slurp()> is exported to your code. This
+is an alias for read_file and is meant to be forward compatible with
+Perl 6 (which will have slurp() built-in).
+
 The options are:
 
 =head3 binmode
@@ -427,7 +445,7 @@ file modes.
 
 If this boolean option is set, the return value (only in scalar
 context) will be an array reference which contains the lines of the
-slurped file. The following two calls are equivilent:
+slurped file. The following two calls are equivalent:
 
 	my $lines_ref = read_file( $bin_file, array_ref => 1 ) ;
 	my $lines_ref = [ read_file( $bin_file ) ] ;
@@ -588,11 +606,22 @@ documentation. These calls are equivilent:
 =head2 read_dir
 
 This sub reads all the file names from directory and returns them to
-the caller but C<.> and C<..> are removed.
+the caller but C<.> and C<..> are removed by default.
 
 	my @files = read_dir( '/path/to/dir' ) ;
 
 It croaks if it cannot open the directory.
+
+In a list context C<read_dir> returns a list of the entries in the
+directory. In a scalar context it returns an array reference which has
+the entries.
+
+=head3 keep_dot_dot
+
+If this boolean option is set, C<.> and C<..> are not removed from the
+list of files.
+
+	my @all_files = read_dir( '/path/to/dir', keep_dot_dot => 1 ) ;
 
 =head2 EXPORT
 

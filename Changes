@@ -39,3 +39,10 @@ Revision history for Perl extension File::FastSlurp.
 	  but actually have data works. This seems to be the case on
 	  linux but on Solaris those files show their proper size.
 	  Thanks to Juerd Waalboer <juerd@cpan.org>
+
+9999.08  Fri Apr  8 00:01:50 EDT 2005
+	- read_dir returns an array ref in scalar context
+	- read_dir keeps . and .. if keep_dot_dot option is set.
+	  Thanks to John Alden <john.alden@bbc.co.uk>
+	- slurp() is an optional exported alias to read_file
+	  Thanks to Damian Conway <damian@conway.org>
