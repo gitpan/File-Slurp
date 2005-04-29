@@ -1,8 +1,7 @@
 #!/usr/bin/perl -I.
 
 # try to honor possible tempdirs
-$tmp = $ENV{'TMPDIR'} || $ENV{'TMP'} || $ENV{'TEMP'} || "/tmp";
-$tmp .= "/a$$";
+$tmp = "file_$$";
 
 $short = <<END;
 small

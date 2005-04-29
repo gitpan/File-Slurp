@@ -15,12 +15,9 @@ use vars qw( %EXPORT_TAGS @EXPORT_OK $VERSION @EXPORT ) ;
 @EXPORT = ( @{ $EXPORT_TAGS{'all'} } );
 @EXPORT_OK = qw( slurp ) ;
 
-$VERSION = '9999.08';
+$VERSION = '9999.09';
 
-{
-no strict 'refs' ;
 *slurp = \&read_file ;
-}
 
 sub read_file {
 
@@ -215,6 +212,7 @@ sub write_file {
 		my $mode = O_WRONLY | O_CREAT ;
 		$mode |= O_BINARY if $args->{'binmode'} ;
 		$mode |= O_APPEND if $args->{'append'} ;
+		$mode |= O_EXCL if $args->{'no_clobber'} ;
 
 # open the file and handle any error.
 
@@ -223,8 +221,9 @@ sub write_file {
 			@_ = ( $args, "write_file '$file_name' - sysopen: $!");
 			goto &error ;
 		}
-
 	}
+
+	sysseek( $write_fh, 0, SEEK_END ) if $args->{'append'} ;
 
 # get the size of how much we are writing and init the offset into that buffer
 
@@ -527,6 +526,9 @@ example that does C<open( '-|' )> and child process spews data to the
 parant which slurps it in.  All of the options that control how the
 data is passes into C<write_file> still work in this case.
 
+C<write_file> returns 1 upon successfully writing the file or undef if
+it encountered an error.
+
 The options are:
 
 =head3 binmode
@@ -573,13 +575,20 @@ succeeded in writing out the file and undef if there was an
 error. (Yes, I know if it croaks it can't return anything but that is
 for when I add the options to select the error handling mode).
 
+=head3 no_clobber
+
+If you set this boolean option, an existing file will not be overwritten.
+
+	write_file( $file, {no_clobber => 1}, @data ) ;
+
 =head3 err_mode
 
 You can use this option to control how C<write_file> behaves when an
 error occurs. This option defaults to 'croak'. You can set it to
-'carp' or to 'quiet to have no error handling. If the first call to
-C<write_file> fails it will carp and then write to another file. If the
-second call to C<write_file> fails, it will croak.
+'carp' or to 'quiet' to have no error handling other than the return
+value. If the first call to C<write_file> fails it will carp and then
+write to another file. If the second call to C<write_file> fails, it
+will croak.
 
 	unless ( write_file( $file, { err_mode => 'carp', \$data ) ;
 

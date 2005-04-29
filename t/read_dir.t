@@ -7,8 +7,7 @@ use File::Slurp ;
 
 # try to honor possible tempdirs
 
-my $test_dir = ( $ENV{'TMPDIR'} || $ENV{'TMP'} || $ENV{'TEMP'} || "/tmp" ) .
-		"/read_dir_$$" ;
+my $test_dir = "read_dir_$$" ;
 
 mkdir( $test_dir, 0700) || die "mkdir $test_dir: $!" ;
 

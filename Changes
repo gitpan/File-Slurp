@@ -40,9 +40,24 @@ Revision history for Perl extension File::FastSlurp.
 	  linux but on Solaris those files show their proper size.
 	  Thanks to Juerd Waalboer <juerd@cpan.org>
 
-9999.08  Fri Apr  8 00:01:50 EDT 2005
+9999.08  Sat Apr 16 01:01:27 EDT 2005
 	- read_dir returns an array ref in scalar context
 	- read_dir keeps . and .. if keep_dot_dot option is set.
 	  Thanks to John Alden <john.alden@bbc.co.uk>
 	- slurp() is an optional exported alias to read_file
 	  Thanks to Damian Conway <damian@conway.org>
+
+9999.09  Tue Apr 19 01:21:55 EDT 2005
+	- t/original.t and read_dir.t no longer search for tempdirs. they just
+	  use the current dir which should be in the build directory
+	- t/readdir.t renamed to read_dir.t for consistancy
+	- write_file return values are docuemented
+	  Thanks to Adam Kennedy <adamk@cpan.org>
+	- added no_clobber option to write_file and t/no_clobber.t test for it
+	  Thanks to <pagaltzis@gmx.de>
+	- fixed bug when appending a null string to a file which then
+	  truncates it. seems to be an odd way for linux and OS X to
+	  handle O_APPEND mode on sysopen. they don't seek to the end of
+	  the file so it gets truncated. fixed by adding a seek to the
+	  end if in append mode.n
+	  Thanks to Chris Dolan <cdolan@cpan.org>

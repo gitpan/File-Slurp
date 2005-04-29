@@ -160,7 +160,7 @@ sub test_bin_slurp {
 	ok( $bin2 eq $data x 2, 'read_file append bin - ' . length $data ) ;
 
 	$err = append_file( $file, { binmode => ':raw' }, $data ) ;
-	ok( $err, 'append_file - bin  ' . length $data ) ;
+	ok( $err, 'append_file bin - ' . length $data ) ;
 
 	my $bin3 = read_file( $file, binmode => ':raw' ) ;
 	ok( $bin3 eq $data x 3, 'read_file bin - ' . length $data ) ;

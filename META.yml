@@ -1,7 +1,7 @@
 # http://module-build.sourceforge.net/META-spec.html
 #XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
 name:         File-Slurp
-version:      9999.08
+version:      9999.09
 version_from: lib/File/Slurp.pm
 installdirs:  site
 requires:

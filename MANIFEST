@@ -13,8 +13,10 @@ t/original.t
 t/stdin.t
 t/inode.t
 t/pseudo.t
-t/readdir.t
+t/read_dir.t
 t/slurp.t
+t/no_clobber.t
+t/append_null.t
 extras/slurp_bench.pl
 extras/slurp_article.pod
 META.yml                                 Module meta-data (added by MakeMaker)
