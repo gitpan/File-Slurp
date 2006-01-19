@@ -3,8 +3,57 @@ package File::Slurp;
 use strict;
 
 use Carp ;
-use Fcntl qw( :DEFAULT :seek ) ;
+#use Fcntl qw( :DEFAULT ) ;
+#use POSIX qw( :fcntl_h ) ;
 use Symbol ;
+
+# Install subs for various constants that aren't set in older perls
+# (< 5.005).  Fcntl on old perls uses Exporter to define subs without a
+# () prototype These can't be overridden with the constant pragma or
+# we get a prototype mismatch.  Hence this less than aesthetically
+# appealing BEGIN block:
+
+BEGIN {
+	unless( eval { defined SEEK_SET() } ) {
+		*SEEK_SET = sub { 0 };
+		*SEEK_CUR = sub { 1 };
+		*SEEK_END = sub { 2 };
+	}
+
+	unless( eval { defined O_BINARY() } ) {
+		*O_BINARY = sub { 0 };
+		*O_RDONLY = sub { 0 };
+		*O_WRONLY = sub { 1 };
+	}
+
+	unless ( eval { defined O_APPEND() } ) {
+
+		if ( $^O =~ /olaris/ ) {
+			*O_APPEND = sub { 8 };
+			*O_CREAT = sub { 256 };
+			*O_EXCL = sub { 1024 };
+		}
+		elsif ( $^O =~ /inux/ ) {
+			*O_APPEND = sub { 1024 };
+			*O_CREAT = sub { 64 };
+			*O_EXCL = sub { 128 };
+		}
+		elsif ( $^O =~ /BSD/i ) {
+			*O_APPEND = sub { 8 };
+			*O_CREAT = sub { 512 };
+			*O_EXCL = sub { 2048 };
+		}
+	}
+}
+
+# print "OS [$^O]\n" ;
+
+# print "O_BINARY = ", O_BINARY(), "\n" ;
+# print "O_RDONLY = ", O_RDONLY(), "\n" ;
+# print "O_WRONLY = ", O_WRONLY(), "\n" ;
+# print "O_APPEND = ", O_APPEND(), "\n" ;
+# print "O_CREAT   ", O_CREAT(), "\n" ;
+# print "O_EXCL   ", O_EXCL(), "\n" ;
 
 use base 'Exporter' ;
 use vars qw( %EXPORT_TAGS @EXPORT_OK $VERSION @EXPORT ) ;
@@ -15,7 +64,7 @@ use vars qw( %EXPORT_TAGS @EXPORT_OK $VERSION @EXPORT ) ;
 @EXPORT = ( @{ $EXPORT_TAGS{'all'} } );
 @EXPORT_OK = qw( slurp ) ;
 
-$VERSION = '9999.09';
+$VERSION = '9999.10';
 
 *slurp = \&read_file ;
 
@@ -51,7 +100,17 @@ sub read_file {
 # left at the same place as the fd pointer. this sysseek makes them
 # the same so slurping with sysread will work.
 
-		require B ;
+		eval{ require B } ;
+
+		if ( $@ ) {
+
+			@_ = ( \%args, <<ERR ) ;
+Can't find B.pm with this Perl: $!.
+That module is needed to slurp the DATA handle.
+ERR
+			goto &_error ;
+		}
+
 		if ( B::svref_2object( $read_fh )->IO->IoFLAGS & 16 ) {
 
 # set the seek position to the current tell.
@@ -67,12 +126,14 @@ sub read_file {
 		my $mode = O_RDONLY ;
 		$mode |= O_BINARY if $args{'binmode'} ;
 
+#print "BINARY ", O_BINARY, "\n" ;
+
 # open the file and handle any error
 
 		$read_fh = gensym ;
 		unless ( sysopen( $read_fh, $file_name, $mode ) ) {
 			@_ = ( \%args, "read_file '$file_name' - sysopen: $!");
-			goto &error ;
+			goto &_error ;
 		}
 
 # get the size of the file for use in the read loop
@@ -114,36 +175,39 @@ sub read_file {
 # handle the read error
 
 		@_ = ( \%args, "read_file '$file_name' - sysread: $!");
-		goto &error ;
+		goto &_error ;
 	}
 
 # this is the 5 returns in a row. each handles one possible
-# combination of context and requested return type
-
-# handle wanting to return an array ref of lines
+# combination of caller context and requested return type
 
 	my $sep = $/ ;
 	$sep = '\n\n+' if defined $sep && $sep eq '' ;
 
+# caller wants to get an array ref of lines
+
+# this split doesn't work since it tries to use variable length lookbehind
+# the m// line works.
 #	return [ split( m|(?<=$sep)|, ${$buf_ref} ) ] if $args{'array_ref'}  ;
 	return [ length(${$buf_ref}) ? ${$buf_ref} =~ /(.*?$sep|.+)/sg : () ]
 		if $args{'array_ref'}  ;
 
-# handle wanting a list of lines (normal list context)
+# caller wants a list of lines (normal list context)
 
+# same problem with this split as before.
 #	return split( m|(?<=$sep)|, ${$buf_ref} ) if wantarray ;
 	return length(${$buf_ref}) ? ${$buf_ref} =~ /(.*?$sep|.+)/sg : ()
 		if wantarray ;
 
-# handle wanting to return an scalar ref to the slurped text
+# caller wants a scalar ref to the slurped text
 
 	return $buf_ref if $args{'scalar_ref'} ;
 
-# handle wanting a scalar with the slurped text (normal scalar context)
+# caller wants a scalar with the slurped text (normal scalar context)
 
 	return ${$buf_ref} if defined wantarray ;
 
-# handle when a buffer by buffer reference was passed in (normal void context)
+# caller passed in an i/o buffer by reference (normal void context)
 
 	return ;
 }
@@ -219,7 +283,7 @@ sub write_file {
 		$write_fh = gensym ;
 		unless ( sysopen( $write_fh, $file_name, $mode ) ) {
 			@_ = ( $args, "write_file '$file_name' - sysopen: $!");
-			goto &error ;
+			goto &_error ;
 		}
 	}
 
@@ -243,7 +307,7 @@ sub write_file {
 
 # the write failed
 			@_ = ( $args, "write_file '$file_name' - syswrite: $!");
-			goto &error ;
+			goto &_error ;
 		}
 
 # track much left to write and where to write from in the buffer
@@ -315,7 +379,7 @@ sub read_dir {
 	unless ( opendir( DIRH, $dir ) ) {
 
 		@_ = ( \%args, "read_dir '$dir' - opendir: $!" ) ;
-		goto &error ;
+		goto &_error ;
 	}
 
 	my @dir_entries = readdir(DIRH) ;
@@ -337,11 +401,11 @@ sub read_dir {
 
 
 my %err_func = (
-	carp => \&carp,
-	croak => \&croak,
+	'carp'	=> \&carp,
+	'croak'	=> \&croak,
 ) ;
 
-sub error {
+sub _error {
 
 	my( $args, $err_msg ) = @_ ;
 
@@ -421,7 +485,7 @@ the data is returned to the caller still work in this case.
 
 NOTE: as of version 9999.06, read_file works correctly on the C<DATA>
 handle. It used to need a sysseek workaround but that is now handled
-when needed by the module itself
+when needed by the module itself.
 
 You can optionally request that C<slurp()> is exported to your code. This
 is an alias for read_file and is meant to be forward compatible with
@@ -638,7 +702,13 @@ list of files.
 
 =head2 SEE ALSO
 
-An article on file slurping 
+An article on file slurping in extras/slurp_article.pod. There is
+also a benchmarking script in extras/slurp_bench.pl.
+
+=head2 BUGS
+
+If run under Perl 5.004, slurping from the DATA handle will fail as
+that requires B.pm which didn't get into core until 5.005.
 
 =head1 AUTHOR
 

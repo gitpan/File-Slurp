@@ -61,3 +61,16 @@ Revision history for Perl extension File::FastSlurp.
 	  the file so it gets truncated. fixed by adding a seek to the
 	  end if in append mode.n
 	  Thanks to Chris Dolan <cdolan@cpan.org>
+
+9999.10   Sun Oct 23 15:28:42 EDT 2005
+	- t/*.t modules don't use Fcntl.pm
+	- using POSIX qw( :fcntl_h ) instead of Fcntl qw( :seek ) for
+	  backwards compatiblity to 5.00503
+	- added conditional definitions of SEEK_* and O_* subs as they are not
+	  defined in perl 5.004
+	- File::Slurp now runs on perl 5.004 and newer (see BUGS section)
+	  All of the above thanks to Smylers <Smylers@stripey.com>,
+	  Piers Kent <piers.kent@bbc.co.uk> and 
+	  John Alden <john.alden@bbc.co.uk>
+	- Added pod.t and pod_coverage.t tests. This is to pass all
+	  the CPANTS tests.

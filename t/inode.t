@@ -3,7 +3,6 @@
 use strict ;
 
 use Carp ;
-use Fcntl qw( :seek ) ;
 use Socket ;
 use Symbol ;
 use Test::More ;

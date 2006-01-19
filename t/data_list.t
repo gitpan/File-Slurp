@@ -3,14 +3,31 @@
 use strict ;
 
 use Carp ;
-use Fcntl qw( :seek ) ;
+use POSIX qw( :fcntl_h ) ;
 use Test::More tests => 2 ;
+
+# in case SEEK_SET isn't defined in older perls. it seems to always be 0
+
+BEGIN {
+
+	*SEEK_SET = sub { 0 } unless eval { SEEK_SET() } ;
+}
 
 BEGIN{ 
 	use_ok( 'File::Slurp', ) ;
 }
 
-test_data_list_slurp() ;
+SKIP: {
+
+	eval { require B } ;
+
+	skip <<TEXT, 1 if $@ ;
+B.pm not found in this Perl. This will cause slurping of
+the DATA handle to fail.
+TEXT
+
+	test_data_list_slurp() ;
+}
 
 exit ;
 

@@ -31,7 +31,10 @@ my $file_cnt = 23 ;
 
 my @expected_entries = sort( 'x', 1 .. $file_cnt ) ;
 
-write_file( "$test_dir/$_", "foo\n" ) for 1 .. $file_cnt ;
+for ( 1 .. $file_cnt ) {
+
+	write_file( "$test_dir/$_", "foo\n" ) ;
+}
 
 @dir_entries = read_dir( $test_dir ) ;
 @dir_entries = sort @dir_entries ;

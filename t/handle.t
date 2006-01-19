@@ -3,10 +3,16 @@
 use strict ;
 
 use Carp ;
-use Fcntl qw( :seek ) ;
+use POSIX qw( :fcntl_h ) ;
 use Socket ;
 use Symbol ;
 use Test::More ;
+
+# in case SEEK_SET isn't defined in older perls. it seems to always be 0
+
+BEGIN {
+	*SEEK_SET = sub { 0 } unless eval { SEEK_SET() } ;
+}
 
 my @pipe_data = (
 	'',
@@ -20,7 +26,7 @@ plan( tests => scalar @pipe_data ) ;
 
 
 BEGIN{ 
-	use_ok( 'File::Slurp', ) ;
+	use_ok( 'File::Slurp', )  ;
 }
 
 #test_data_slurp() ;
@@ -123,7 +129,7 @@ warn "PARENT read\n" ;
 # child
 warn "CHILD write\n" ;
 	#	write_file( \*STDOUT, $data ) ;
-		syswrite( \*STDOUT, $data ) ;
+		syswrite( \*STDOUT, $data, length( $data ) ) ;
 
 		close \*STDOUT;
 		exit(0);
@@ -166,7 +172,7 @@ sub test_to_pipe {
 	if ( pipe_to_fork( \*WRITE_FH ) ) {
 
 # parent
-		syswrite( \*WRITE_FH, $data ) ;
+		syswrite( \*WRITE_FH, $data, length( $data ) ) ;
 #		write_file( \*WRITE_FH, $data ) ;
 warn "PARENT write\n" ;
 

@@ -140,29 +140,29 @@ sub test_bin_slurp {
 
 	my( $data ) = @_ ;
 
-	my $err = write_file( $file, {binmode => ':raw'}, $data ) ;
+	my $err = write_file( $file, {'binmode' => ':raw'}, $data ) ;
 	ok( $err, 'write_file bin - ' . length $data ) ;
 
-	my $bin = read_file( $file, binmode => ':raw' ) ;
+	my $bin = read_file( $file, 'binmode' => ':raw' ) ;
 	ok( $bin eq $data, 'scalar read_file bin - ' . length $data ) ;
 
-	my $bin_ref = read_file( $file, scalar_ref => 1, binmode => ':raw' ) ;
+	my $bin_ref = read_file( $file, scalar_ref => 1, 'binmode' => ':raw' ) ;
 	ok( ${$bin_ref} eq $data,
 			'scalar ref read_file bin - ' . length $data ) ;
 
-	read_file( $file, buf_ref => \(my $buffer), binmode => ':raw'  ) ;
+	read_file( $file, buf_ref => \(my $buffer), 'binmode' => ':raw'  ) ;
 	ok( $buffer eq $data, 'buf_ref read_file bin - ' . length $data ) ;
 
-	$err = write_file( $file, { append => 1, binmode => ':raw' }, $data ) ;
+	$err = write_file( $file, { append => 1, 'binmode' => ':raw' }, $data ) ;
 	ok( $err, 'write_file append bin - ' . length $data ) ;
 
-	my $bin2 = read_file( $file, binmode => ':raw' ) ;
+	my $bin2 = read_file( $file, 'binmode' => ':raw' ) ;
 	ok( $bin2 eq $data x 2, 'read_file append bin - ' . length $data ) ;
 
-	$err = append_file( $file, { binmode => ':raw' }, $data ) ;
+	$err = append_file( $file, { 'binmode' => ':raw' }, $data ) ;
 	ok( $err, 'append_file bin - ' . length $data ) ;
 
-	my $bin3 = read_file( $file, binmode => ':raw' ) ;
+	my $bin3 = read_file( $file, 'binmode' => ':raw' ) ;
 	ok( $bin3 eq $data x 3, 'read_file bin - ' . length $data ) ;
 
 	return ;
