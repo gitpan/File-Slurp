@@ -3,8 +3,8 @@ package File::Slurp;
 use strict;
 
 use Carp ;
-#use Fcntl qw( :DEFAULT ) ;
-#use POSIX qw( :fcntl_h ) ;
+use Fcntl qw( :DEFAULT ) ;
+use POSIX qw( :fcntl_h ) ;
 use Symbol ;
 
 # Install subs for various constants that aren't set in older perls
@@ -64,7 +64,7 @@ use vars qw( %EXPORT_TAGS @EXPORT_OK $VERSION @EXPORT ) ;
 @EXPORT = ( @{ $EXPORT_TAGS{'all'} } );
 @EXPORT_OK = qw( slurp ) ;
 
-$VERSION = '9999.10';
+$VERSION = '9999.11';
 
 *slurp = \&read_file ;
 
