@@ -3,9 +3,11 @@ package File::Slurp;
 use strict;
 
 use Carp ;
-use Fcntl qw( :DEFAULT ) ;
 use POSIX qw( :fcntl_h ) ;
+use Fcntl qw( :DEFAULT ) ;
 use Symbol ;
+
+my $is_win32 = $^O =~ /win32/i ;
 
 # Install subs for various constants that aren't set in older perls
 # (< 5.005).  Fcntl on old perls uses Exporter to define subs without a
@@ -64,7 +66,7 @@ use vars qw( %EXPORT_TAGS @EXPORT_OK $VERSION @EXPORT ) ;
 @EXPORT = ( @{ $EXPORT_TAGS{'all'} } );
 @EXPORT_OK = qw( slurp ) ;
 
-$VERSION = '9999.11';
+$VERSION = '9999.12';
 
 *slurp = \&read_file ;
 
@@ -126,7 +128,7 @@ ERR
 		my $mode = O_RDONLY ;
 		$mode |= O_BINARY if $args{'binmode'} ;
 
-#print "BINARY ", O_BINARY, "\n" ;
+#printf "RD: BINARY %x MODE %x\n", O_BINARY, $mode ;
 
 # open the file and handle any error
 
@@ -178,6 +180,10 @@ ERR
 		goto &_error ;
 	}
 
+# fix up cr/lf to be a newline if this is a windows text file
+
+	${$buf_ref} =~ s/\015\012/\n/g if $is_win32 && !$args{'binmode'} ;
+
 # this is the 5 returns in a row. each handles one possible
 # combination of caller context and requested return type
 
@@ -220,7 +226,7 @@ sub write_file {
 
 	my $args = ( ref $_[0] eq 'HASH' ) ? shift : {} ;
 
-	my( $buf_ref, $write_fh, $no_truncate, $orig_file_name ) ;
+	my( $buf_ref, $write_fh, $no_truncate, $orig_file_name, $data_is_ref ) ;
 
 # get the buffer ref - it depends on how the data is passed into write_file
 # after this if/else $buf_ref will have a scalar ref to the data.
@@ -228,14 +234,18 @@ sub write_file {
 	if ( ref $args->{'buf_ref'} eq 'SCALAR' ) {
 
 # a scalar ref passed in %args has the data
+# note that the data was passed by ref
 
 		$buf_ref = $args->{'buf_ref'} ;
+		$data_is_ref = 1 ;
 	}
 	elsif ( ref $_[0] eq 'SCALAR' ) {
 
 # the first value in @_ is the scalar ref to the data
+# note that the data was passed by ref
 
 		$buf_ref = shift ;
+		$data_is_ref = 1 ;
 	}
 	elsif ( ref $_[0] eq 'ARRAY' ) {
 
@@ -278,6 +288,8 @@ sub write_file {
 		$mode |= O_APPEND if $args->{'append'} ;
 		$mode |= O_EXCL if $args->{'no_clobber'} ;
 
+#printf "WR: BINARY %x MODE %x\n", O_BINARY, $mode ;
+
 # open the file and handle any error.
 
 		$write_fh = gensym ;
@@ -288,6 +300,21 @@ sub write_file {
 	}
 
 	sysseek( $write_fh, 0, SEEK_END ) if $args->{'append'} ;
+
+
+#print 'WR before data ', unpack( 'H*', ${$buf_ref}), "\n" ;
+
+# fix up newline to write cr/lf if this is a windows text file
+
+	if ( $is_win32 && !$args->{'binmode'} ) {
+
+# copy the write data if it was passed by ref so we don't clobber the
+# caller's data
+		$buf_ref = \do{ my $copy = ${$buf_ref}; } if $data_is_ref ;
+		${$buf_ref} =~ s/\n/\015\012/g ;
+	}
+
+#print 'after data ', unpack( 'H*', ${$buf_ref}), "\n" ;
 
 # get the size of how much we are writing and init the offset into that buffer
 

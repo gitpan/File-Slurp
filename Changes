@@ -62,7 +62,7 @@ Revision history for Perl extension File::FastSlurp.
 	  end if in append mode.n
 	  Thanks to Chris Dolan <cdolan@cpan.org>
 
-9999.10   Sun Oct 23 15:28:42 EDT 2005
+9999.10   Thu Jan 19 11:38:00 EDT 2005
 	- t/*.t modules don't use Fcntl.pm
 	- using POSIX qw( :fcntl_h ) instead of Fcntl qw( :seek ) for
 	  backwards compatiblity to 5.00503
@@ -74,3 +74,23 @@ Revision history for Perl extension File::FastSlurp.
 	  John Alden <john.alden@bbc.co.uk>
 	- Added pod.t and pod_coverage.t tests. This is to pass all
 	  the CPANTS tests.
+
+9999.11   Fri Jan 20 01:24:00 EDT 2005
+	- Quick release to remove code that forced the faked SEEK_*
+	  values to be used. Showed up when tested on OSX which doesn't
+	  need that backport.
+
+9999.12   Thu Feb  2 02:26:31 EST 2006
+	- Fixed bug on windows with classic slurping and File::Slurp not
+	  agreeing on newline conversion.
+	- Added t/newline.t test to check for that fix.
+	- When passing text data by scalar reference to write_file under
+	  windows, the buffer is copied so the newline conversion won't
+	  modify the caller's data.
+	- Thanks to Johan Lodin <lodin@cpan.org> for a test script which
+	  I modified into t/newline.t
+
+
+
+
+
