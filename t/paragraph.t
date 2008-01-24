@@ -5,10 +5,6 @@ use strict ;
 use Test::More ;
 use Carp ;
 
-BEGIN{ 
-	use_ok( 'File::Slurp', ) ;
-}
-
 my $file = 'slurp.data' ;
 unlink $file ;
 
@@ -23,7 +19,10 @@ my @text_data = (
 	[],
 ) ;
 
-plan( tests => 3 * @text_data ) ;
+plan( tests => 1 + ( 3 * @text_data ) ) ;
+
+use_ok( 'File::Slurp', ) ;
+
 
 #print "# text slurp\n" ;
 

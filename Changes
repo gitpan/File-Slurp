@@ -90,7 +90,7 @@ Revision history for Perl extension File::FastSlurp.
 	- Thanks to Johan Lodin <lodin@cpan.org> for a test script which
 	  I modified into t/newline.t
 
-
-
-
-
+9999.13   Wed Jan 23 22:54:03 CDT 2008
+        - This is a "get the tests passing" release by Dave Rolsky
+	- Fixes the tests to pass with the latest Test::More
+        - Also shuts up warnings from some tests about redefining SEEK_SET.

@@ -5,10 +5,6 @@ use strict ;
 use Test::More ;
 use Carp ;
 
-BEGIN{ 
-	use_ok( 'File::Slurp', ) ;
-}
-
 my $file = 'slurp.data' ;
 unlink $file ;
 
@@ -44,7 +40,10 @@ foreach my $size ( @bin_sizes ) {
 	push @bin_data, $data ;
 }
 
-plan( tests => 16 * @text_data + 8 * @bin_data ) ;
+plan( tests => 1 + ( 16 * @text_data + 8 * @bin_data ) ) ;
+
+use_ok( 'File::Slurp', ) ;
+
 
 #print "# text slurp\n" ;
 

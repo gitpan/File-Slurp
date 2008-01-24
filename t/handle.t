@@ -11,7 +11,7 @@ use Test::More ;
 # in case SEEK_SET isn't defined in older perls. it seems to always be 0
 
 BEGIN {
-	*SEEK_SET = sub { 0 } unless eval { SEEK_SET() } ;
+	*SEEK_SET = sub { 0 } unless eval { defined SEEK_SET() } ;
 }
 
 my @pipe_data = (
@@ -22,12 +22,10 @@ my @pipe_data = (
 ) ;
 
 #plan( tests => 2 + @pipe_data ) ;
-plan( tests => scalar @pipe_data ) ;
+plan( tests => 1 + scalar @pipe_data ) ;
 
 
-BEGIN{ 
-	use_ok( 'File::Slurp', )  ;
-}
+use_ok( 'File::Slurp', )  ;
 
 #test_data_slurp() ;
 

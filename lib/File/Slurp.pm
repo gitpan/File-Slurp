@@ -66,7 +66,7 @@ use vars qw( %EXPORT_TAGS @EXPORT_OK $VERSION @EXPORT ) ;
 @EXPORT = ( @{ $EXPORT_TAGS{'all'} } );
 @EXPORT_OK = qw( slurp ) ;
 
-$VERSION = '9999.12';
+$VERSION = '9999.13';
 
 *slurp = \&read_file ;
 

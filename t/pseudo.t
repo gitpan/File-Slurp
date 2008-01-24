@@ -3,9 +3,7 @@
 use strict ;
 
 use Carp ;
-use Test::More ;
-
-plan( tests => 1 ) ; 
+use Test::More tests => 2 ;
 
 my $proc_file = "/proc/$$/auxv" ;
 

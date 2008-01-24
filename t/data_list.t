@@ -10,7 +10,7 @@ use Test::More tests => 2 ;
 
 BEGIN {
 
-	*SEEK_SET = sub { 0 } unless eval { SEEK_SET() } ;
+	*SEEK_SET = sub { 0 } unless eval { defined SEEK_SET() } ;
 }
 
 BEGIN{ 

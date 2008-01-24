@@ -2,7 +2,7 @@
 
 use strict ;
 
-use Test::More ;
+use Test::More tests => 10 ;
 use Carp ;
 
 BEGIN{ 
@@ -13,8 +13,6 @@ use File::Slurp ;
 
 my $file = 'missing/file' ;
 unlink $file ;
-
-plan tests => 9 ;
 
 my %modes = (
 	'croak' => \&test_croak,
