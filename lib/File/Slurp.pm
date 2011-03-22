@@ -1,11 +1,28 @@
 package File::Slurp;
 
+my $printed ;
+
 use strict;
 
 use Carp ;
-use POSIX qw( :fcntl_h ) ;
+use Exporter ;
 use Fcntl qw( :DEFAULT ) ;
+use POSIX qw( :fcntl_h ) ;
 use Symbol ;
+use UNIVERSAL ;
+
+use vars qw( @ISA %EXPORT_TAGS @EXPORT_OK $VERSION @EXPORT ) ;
+@ISA = qw( Exporter ) ;
+
+%EXPORT_TAGS = ( 'all' => [
+	qw( read_file write_file overwrite_file append_file read_dir ) ] ) ;
+
+@EXPORT = ( @{ $EXPORT_TAGS{'all'} } );
+@EXPORT_OK = qw( slurp ) ;
+
+$VERSION = '9999.14';
+
+my $max_fast_slurp_size = 1024 * 100 ;
 
 my $is_win32 = $^O =~ /win32/i ;
 
@@ -16,19 +33,19 @@ my $is_win32 = $^O =~ /win32/i ;
 # appealing BEGIN block:
 
 BEGIN {
-	unless( eval { defined SEEK_SET() } ) {
+	unless( defined &SEEK_SET ) {
 		*SEEK_SET = sub { 0 };
 		*SEEK_CUR = sub { 1 };
 		*SEEK_END = sub { 2 };
 	}
 
-	unless( eval { defined O_BINARY() } ) {
+	unless( defined &O_BINARY ) {
 		*O_BINARY = sub { 0 };
 		*O_RDONLY = sub { 0 };
 		*O_WRONLY = sub { 1 };
 	}
 
-	unless ( eval { defined O_APPEND() } ) {
+	unless ( defined &O_APPEND ) {
 
 		if ( $^O =~ /olaris/ ) {
 			*O_APPEND = sub { 8 };
@@ -57,22 +74,37 @@ BEGIN {
 # print "O_CREAT   ", O_CREAT(), "\n" ;
 # print "O_EXCL   ", O_EXCL(), "\n" ;
 
-use base 'Exporter' ;
-use vars qw( %EXPORT_TAGS @EXPORT_OK $VERSION @EXPORT ) ;
-
-%EXPORT_TAGS = ( 'all' => [
-	qw( read_file write_file overwrite_file append_file read_dir ) ] ) ;
-
-@EXPORT = ( @{ $EXPORT_TAGS{'all'} } );
-@EXPORT_OK = qw( slurp ) ;
-
-$VERSION = '9999.13';
 
 *slurp = \&read_file ;
 
 sub read_file {
 
 	my( $file_name, %args ) = @_ ;
+
+	if ( !ref $file_name && 0 &&
+	     -e $file_name && -s _ < $max_fast_slurp_size && ! %args && !wantarray ) {
+
+		local( *FH ) ;
+
+		unless( open( FH, $file_name ) ) {
+
+			@_ = ( \%args, "read_file '$file_name' - sysopen: $!");
+			goto &_error ;
+		}
+
+		my $read_cnt = sysread( FH, my $buf, -s _ ) ;
+
+		unless ( defined $read_cnt ) {
+
+# handle the read error
+
+			@_ = ( \%args,
+				"read_file '$file_name' - small sysread: $!");
+			goto &_error ;
+		}
+
+		return $buf ;
+	}
 
 # set the buffer to either the passed in one or ours and init it to the null
 # string
@@ -83,50 +115,45 @@ sub read_file {
 
 	my( $read_fh, $size_left, $blk_size ) ;
 
-# check if we are reading from a handle (glob ref or IO:: object)
+# deal with ref for a file name
+# it could be an open handle or an overloaded object
 
 	if ( ref $file_name ) {
 
-# slurping a handle so use it and don't open anything.
-# set the block size so we know it is a handle and read that amount
+		my $ref_result = _check_ref( $file_name ) ;
 
-		$read_fh = $file_name ;
-		$blk_size = $args{'blk_size'} || 1024 * 1024 ;
-		$size_left = $blk_size ;
+		if ( ref $ref_result ) {
 
-# DEEP DARK MAGIC. this checks the UNTAINT IO flag of a
-# glob/handle. only the DATA handle is untainted (since it is from
-# trusted data in the source file). this allows us to test if this is
-# the DATA handle and then to do a sysseek to make sure it gets
-# slurped correctly. on some systems, the buffered i/o pointer is not
-# left at the same place as the fd pointer. this sysseek makes them
-# the same so slurping with sysread will work.
+# we got an error, deal with it
 
-		eval{ require B } ;
-
-		if ( $@ ) {
-
-			@_ = ( \%args, <<ERR ) ;
-Can't find B.pm with this Perl: $!.
-That module is needed to slurp the DATA handle.
-ERR
+			@_ = ( \%args, $ref_result ) ;
 			goto &_error ;
 		}
 
-		if ( B::svref_2object( $read_fh )->IO->IoFLAGS & 16 ) {
+		if ( $ref_result ) {
 
-# set the seek position to the current tell.
+# we got an overloaded object and the result is the stringified value
+# use it as the file name
 
-			sysseek( $read_fh, tell( $read_fh ), SEEK_SET ) ||
-				croak "sysseek $!" ;
+			$file_name = $ref_result ;
+		}
+		else {
+
+# here we have just an open handle. set $read_fh so we don't do a sysopen
+
+			$read_fh = $file_name ;
+			$blk_size = $args{'blk_size'} || 1024 * 1024 ;
+			$size_left = $blk_size ;
 		}
 	}
-	else {
+
+# see if we have a path we need to open
+
+	unless ( $read_fh ) {
 
 # a regular file. set the sysopen mode
 
 		my $mode = O_RDONLY ;
-		$mode |= O_BINARY if $args{'binmode'} ;
 
 #printf "RD: BINARY %x MODE %x\n", O_BINARY, $mode ;
 
@@ -138,9 +165,19 @@ ERR
 			goto &_error ;
 		}
 
+		if ( my $binmode = $args{'binmode'} ) {
+			binmode( $read_fh, $binmode ) ;
+		}
+
 # get the size of the file for use in the read loop
 
 		$size_left = -s $read_fh ;
+
+#print "SIZE $size_left\n" ;
+
+
+# we need a blk_size if the size is 0 so we can handle pseudofiles like in
+# /proc. these show as 0 size but have data to be slurped.
 
 		unless( $size_left ) {
 
@@ -148,6 +185,24 @@ ERR
 			$size_left = $blk_size ;
 		}
 	}
+
+
+# 	if ( $size_left < 10000 && keys %args == 0 && !wantarray ) {
+
+# #print "OPT\n" and $printed++ unless $printed ;
+
+# 		my $read_cnt = sysread( $read_fh, my $buf, $size_left ) ;
+
+# 		unless ( defined $read_cnt ) {
+
+# # handle the read error
+
+# 			@_ = ( \%args, "read_file '$file_name' - small2 sysread: $!");
+# 			goto &_error ;
+# 		}
+
+# 		return $buf ;
+# 	}
 
 # infinite read loop. we exit when we are done slurping
 
@@ -158,26 +213,26 @@ ERR
 		my $read_cnt = sysread( $read_fh, ${$buf_ref},
 				$size_left, length ${$buf_ref} ) ;
 
-		if ( defined $read_cnt ) {
-
-# good read. see if we hit EOF (nothing left to read)
-
-			last if $read_cnt == 0 ;
-
-# loop if we are slurping a handle. we don't track $size_left then.
-
-			next if $blk_size ;
-
-# count down how much we read and loop if we have more to read.
-			$size_left -= $read_cnt ;
-			last if $size_left <= 0 ;
-			next ;
-		}
+		unless ( defined $read_cnt ) {
 
 # handle the read error
 
-		@_ = ( \%args, "read_file '$file_name' - sysread: $!");
-		goto &_error ;
+			@_ = ( \%args, "read_file '$file_name' - loop sysread: $!");
+			goto &_error ;
+		}
+
+# good read. see if we hit EOF (nothing left to read)
+
+		last if $read_cnt == 0 ;
+
+# loop if we are slurping a handle. we don't track $size_left then.
+
+		next if $blk_size ;
+
+# count down how much we read and loop if we have more to read.
+
+		$size_left -= $read_cnt ;
+		last if $size_left <= 0 ;
 	}
 
 # fix up cr/lf to be a newline if this is a windows text file
@@ -190,20 +245,25 @@ ERR
 	my $sep = $/ ;
 	$sep = '\n\n+' if defined $sep && $sep eq '' ;
 
-# caller wants to get an array ref of lines
+# see if caller wants lines
 
-# this split doesn't work since it tries to use variable length lookbehind
-# the m// line works.
-#	return [ split( m|(?<=$sep)|, ${$buf_ref} ) ] if $args{'array_ref'}  ;
-	return [ length(${$buf_ref}) ? ${$buf_ref} =~ /(.*?$sep|.+)/sg : () ]
-		if $args{'array_ref'}  ;
+	if( wantarray || $args{'array_ref'} ) {
 
-# caller wants a list of lines (normal list context)
+		my @parts = split m/($sep)/, ${$buf_ref}, -1;
 
-# same problem with this split as before.
-#	return split( m|(?<=$sep)|, ${$buf_ref} ) if wantarray ;
-	return length(${$buf_ref}) ? ${$buf_ref} =~ /(.*?$sep|.+)/sg : ()
-		if wantarray ;
+		my @lines ;
+
+		while( @parts > 2 ) {
+
+			my( $line, $sep ) = splice( @parts, 0, 2 ) ;
+			push @lines, "$line$sep" ;
+		}
+
+		push @lines, shift @parts if @parts && length $parts[0] ;
+
+		return @lines if wantarray ;
+		return \@lines ;
+	}
 
 # caller wants a scalar ref to the slurped text
 
@@ -216,7 +276,110 @@ ERR
 # caller passed in an i/o buffer by reference (normal void context)
 
 	return ;
+
+
+# # caller wants to get an array ref of lines
+
+# # this split doesn't work since it tries to use variable length lookbehind
+# # the m// line works.
+# #	return [ split( m|(?<=$sep)|, ${$buf_ref} ) ] if $args{'array_ref'}  ;
+# 	return [ length(${$buf_ref}) ? ${$buf_ref} =~ /(.*?$sep|.+)/sg : () ]
+# 		if $args{'array_ref'}  ;
+
+# # caller wants a list of lines (normal list context)
+
+# # same problem with this split as before.
+# #	return split( m|(?<=$sep)|, ${$buf_ref} ) if wantarray ;
+# 	return length(${$buf_ref}) ? ${$buf_ref} =~ /(.*?$sep|.+)/sg : ()
+# 		if wantarray ;
+
+# # caller wants a scalar ref to the slurped text
+
+# 	return $buf_ref if $args{'scalar_ref'} ;
+
+# # caller wants a scalar with the slurped text (normal scalar context)
+
+# 	return ${$buf_ref} if defined wantarray ;
+
+# # caller passed in an i/o buffer by reference (normal void context)
+
+# 	return ;
 }
+
+
+# errors in this sub are returned as scalar refs
+# a normal IO/GLOB handle is an empty return
+# an overloaded object returns its stringified as a scalarfilename
+
+sub _check_ref {
+
+	my( $handle ) = @_ ;
+
+# check if we are reading from a handle (GLOB or IO object)
+
+	if ( eval { $handle->isa( 'GLOB' ) || $handle->isa( 'IO' ) } ) {
+
+# we have a handle. deal with seeking to it if it is DATA
+
+		my $err = _seek_data_handle( $handle ) ;
+
+# return the error string if any
+
+		return \$err if $err ;
+
+# we have good handle
+		return ;
+	}
+
+	eval { require overload } ;
+
+# return an error if we can't load the overload pragma
+# or if the object isn't overloaded
+
+	return \"Bad handle '$handle' is not a GLOB or IO object or overloaded"
+		 if $@ || !overload::Overloaded( $handle ) ;
+
+# must be overloaded so return its stringified value
+
+	return "$handle" ;
+}
+
+sub _seek_data_handle {
+
+	my( $handle ) = @_ ;
+
+# DEEP DARK MAGIC. this checks the UNTAINT IO flag of a
+# glob/handle. only the DATA handle is untainted (since it is from
+# trusted data in the source file). this allows us to test if this is
+# the DATA handle and then to do a sysseek to make sure it gets
+# slurped correctly. on some systems, the buffered i/o pointer is not
+# left at the same place as the fd pointer. this sysseek makes them
+# the same so slurping with sysread will work.
+
+	eval{ require B } ;
+
+	if ( $@ ) {
+
+		return <<ERR ;
+Can't find B.pm with this Perl: $!.
+That module is needed to properly slurp the DATA handle.
+ERR
+	}
+
+	if ( B::svref_2object( $handle )->IO->IoFLAGS & 16 ) {
+
+# set the seek position to the current tell.
+
+		unless( sysseek( $handle, tell( $handle ), SEEK_SET ) ) {
+			return "read_file '$handle' - sysseek: $!" ;
+		}
+	}
+
+# seek was successful, return no error string
+
+	return ;
+}
+
 
 sub write_file {
 
@@ -260,16 +423,40 @@ sub write_file {
 		${$buf_ref} = join '', @_ ;
 	}
 
-# see if we were passed a open handle to spew to.
+# deal with ref for a file name
 
 	if ( ref $file_name ) {
 
-# we have a handle. make sure we don't call truncate on it.
+		my $ref_result = _check_ref( $file_name ) ;
 
-		$write_fh = $file_name ;
-		$no_truncate = 1 ;
+		if ( ref $ref_result ) {
+
+# we got an error, deal with it
+
+			@_ = ( $args, $ref_result ) ;
+			goto &_error ;
+		}
+
+		if ( $ref_result ) {
+
+# we got an overloaded object and the result is the stringified value
+# use it as the file name
+
+			$file_name = $ref_result ;
+		}
+		else {
+
+# we now have a proper handle ref.
+# make sure we don't call truncate on it.
+
+			$write_fh = $file_name ;
+			$no_truncate = 1 ;
+		}
 	}
-	else {
+
+# see if we have a path we need to open
+
+	unless( $write_fh ) {
 
 # spew to regular file.
 
@@ -284,19 +471,25 @@ sub write_file {
 # set the mode for the sysopen
 
 		my $mode = O_WRONLY | O_CREAT ;
-		$mode |= O_BINARY if $args->{'binmode'} ;
 		$mode |= O_APPEND if $args->{'append'} ;
 		$mode |= O_EXCL if $args->{'no_clobber'} ;
+
+		my $perms = $args->{perms} ;
+		$perms = 0666 unless defined $perms ;
 
 #printf "WR: BINARY %x MODE %x\n", O_BINARY, $mode ;
 
 # open the file and handle any error.
 
 		$write_fh = gensym ;
-		unless ( sysopen( $write_fh, $file_name, $mode ) ) {
+		unless ( sysopen( $write_fh, $file_name, $mode, $perms ) ) {
 			@_ = ( $args, "write_file '$file_name' - sysopen: $!");
 			goto &_error ;
 		}
+	}
+
+	if ( my $binmode = $args->{'binmode'} ) {
+		binmode( $write_fh, $binmode ) ;
 	}
 
 	sysseek( $write_fh, 0, SEEK_END ) if $args->{'append'} ;
@@ -354,7 +547,11 @@ sub write_file {
 
 # handle the atomic mode - move the temp file to the original filename.
 
-	rename( $file_name, $orig_file_name ) if $args->{'atomic'} ;
+	if ( $args->{'atomic'} && !rename( $file_name, $orig_file_name ) ) {
+
+		@_ = ( $args, "write_file '$file_name' - rename: $!" ) ;
+		goto &_error ;
+	}
 
 	return 1 ;
 }
@@ -447,7 +644,7 @@ sub _error {
 
 # call the carp/croak function
 
-	$func->($err_msg) ;
+	$func->($err_msg) if $func ;
 
 # return a hard undef (in list context this will be a single value of
 # undef which is not a legal in-band value)
@@ -460,21 +657,37 @@ __END__
 
 =head1 NAME
 
-File::Slurp - Efficient Reading/Writing of Complete Files
+File::Slurp - Simple and Efficient Reading/Writing of Complete Files
 
 =head1 SYNOPSIS
 
   use File::Slurp;
 
+# read in a whole file into a scalar
+
   my $text = read_file( 'filename' ) ;
+
+# read in a whole file into an array of lines
+
   my @lines = read_file( 'filename' ) ;
+
+# write out a whole file from a scalar
+
+  write_file( 'filename', $text ) ;
+
+# write out a whole file from an array of lines
 
   write_file( 'filename', @lines ) ;
 
-  use File::Slurp qw( slurp ) ;
+# Here is a simple and fast way to load and save a simple config file
+# made of key=value lines.
 
-  my $text = slurp( 'filename' ) ;
+  my %conf = read_file( $file_name ) =~ /^(\w+)=(\.*)$/mg ;
+  write_file( $file_name, {atomic => 1}, map "$_=$conf{$_}\n", keys %conf ;
 
+# read in a whole directory of file names (skipping . and ..)
+
+  my @files = read_dir( '/path/to/dir' ) ;
 
 =head1 DESCRIPTION
 
@@ -484,8 +697,14 @@ flexible ways to pass in or get the file contents and to be very
 efficient.  There is also a sub to read in all the files in a
 directory other than C<.> and C<..>
 
-These slurp/spew subs work for files, pipes and
-sockets, and stdio, pseudo-files, and DATA.
+These slurp/spew subs work for files, pipes and sockets, stdio,
+pseudo-files, and the DATA handle. Read more about why slurping files is
+a good thing in the file 'slurp_article.pod' in the extras/ directory.
+
+If you are interested in how fast these calls work, check out the
+slurp_bench.pl program in the extras/ directory. It compares many
+different forms of slurping. You can select the I/O direction, context
+and file sizes. Use the --help option to see how to run it.
 
 =head2 B<read_file>
 
@@ -498,17 +717,27 @@ file as a single scalar.
   my $text = read_file( 'filename' ) ;
   my @lines = read_file( 'filename' ) ;
 
+By default C<read_file> returns an undef in scalar contex or a single
+undef in list context if it encounters an error. Those are both
+impossible to get with a clean read_file call which means you can check
+the return value and always know if you had an error. You can change how
+errors are handled with the C<err_mode> option.
+
 The first argument to C<read_file> is the filename and the rest of the
 arguments are key/value pairs which are optional and which modify the
 behavior of the call. Other than binmode the options all control how
-the slurped file is returned to the caller.
+the slurped file is returned to the caller or how errors are handled.
 
-If the first argument is a file handle reference or I/O object (if ref
-is true), then that handle is slurped in. This mode is supported so
-you slurp handles such as C<DATA>, C<STDIN>. See the test handle.t
-for an example that does C<open( '-|' )> and child process spews data
-to the parant which slurps it in.  All of the options that control how
-the data is returned to the caller still work in this case.
+If the first argument is a handle (if it is a ref and is an IO or GLOB
+object), then that handle is slurped in. This mode is supported so you
+slurp handles such as C<DATA>, C<STDIN>. See the test handle.t for an
+example that does C<open( '-|' )> and child process spews data to the
+parant which slurps it in.  All of the options that control how the data
+is returned to the caller still work in this case.
+
+If the first argument is an overloaded object then its stringified value
+is used for the filename and that file is opened.  This is a new feature
+in 9999.14. See the stringify.t test for an example.
 
 NOTE: as of version 9999.06, read_file works correctly on the C<DATA>
 handle. It used to need a sysseek workaround but that is now handled
@@ -522,14 +751,11 @@ The options are:
 
 =head3 binmode
 
-If you set the binmode option, then the file will be slurped in binary
-mode.
+If you set the binmode option, then the option will be passed to a
+binmode call on the opened filehandle.
 
 	my $bin_data = read_file( $bin_file, binmode => ':raw' ) ;
-
-NOTE: this actually sets the O_BINARY mode flag for sysopen. It
-probably should call binmode and pass its argument to support other
-file modes.
+	my $utf_text = read_file( $bin_file, binmode => ':utf8' ) ;
 
 =head3 array_ref
 
@@ -542,10 +768,11 @@ slurped file. The following two calls are equivalent:
 
 =head3 scalar_ref
 
-If this boolean option is set, the return value (only in scalar
-context) will be an scalar reference to a string which is the contents
-of the slurped file. This will usually be faster than returning the
-plain scalar.
+If this boolean option is set, the return value (only in scalar context)
+will be an scalar reference to a string which is the contents of the
+slurped file. This will usually be faster than returning the plain
+scalar. It will also save memory as it will not make a copy of the file
+to return.
 
 	my $text_ref = read_file( $bin_file, scalar_ref => 1 ) ;
 
@@ -553,7 +780,8 @@ plain scalar.
 
 You can use this option to pass in a scalar reference and the slurped
 file contents will be stored in the scalar. This can be used in
-conjunction with any of the other options.
+conjunction with any of the other options. This saves an extra copy of
+the slurped file and can lower ram usage vs returning the file.
 
 	my $text_ref = read_file( $bin_file, buf_ref => \$buffer,
 					     array_ref => 1 ) ;
@@ -569,9 +797,9 @@ You can use this option to set the block size used when slurping from an already
 =head3 err_mode
 
 You can use this option to control how read_file behaves when an error
-occurs. This option defaults to 'croak'. You can set it to 'carp' or
-to 'quiet to have no error handling. This code wants to carp and then
-read abother file if it fails.
+occurs. This option defaults to 'croak'. You can set it to 'carp' or to
+'quiet to have no special error handling. This code wants to carp and
+then read another file if it fails.
 
 	my $text_ref = read_file( $file, err_mode => 'carp' ) ;
 	unless ( $text_ref ) {
@@ -594,14 +822,14 @@ modify the behavior of C<write_file>. The rest of the argument list is
 the data to be written to the file.
 
   write_file( 'filename', {append => 1 }, @data ) ;
-  write_file( 'filename', {binmode => ':raw' }, $buffer ) ;
+  write_file( 'filename', {binmode => ':raw'}, $buffer ) ;
 
-As a shortcut if the first data argument is a scalar or array
-reference, it is used as the only data to be written to the file. Any
-following arguments in @_ are ignored. This is a faster way to pass in
-the output to be written to the file and is equivilent to the
-C<buf_ref> option. These following pairs are equivilent but the pass
-by reference call will be faster in most cases (especially with larger
+As a shortcut if the first data argument is a scalar or array reference,
+it is used as the only data to be written to the file. Any following
+arguments in @_ are ignored. This is a faster way to pass in the output
+to be written to the file and is equivalent to the C<buf_ref> option of
+C<read_file>. These following pairs are equivalent but the pass by
+reference call will be faster in most cases (especially with larger
 files).
 
   write_file( 'filename', \$buffer ) ;
@@ -610,15 +838,20 @@ files).
   write_file( 'filename', \@lines ) ;
   write_file( 'filename', @lines ) ;
 
-If the first argument is a file handle reference or I/O object (if ref
-is true), then that handle is slurped in. This mode is supported so
-you spew to handles such as \*STDOUT. See the test handle.t for an
-example that does C<open( '-|' )> and child process spews data to the
-parant which slurps it in.  All of the options that control how the
-data is passes into C<write_file> still work in this case.
+If the first argument is a handle (if it is a ref and is an IO or GLOB
+object), then that handle is written to. This mode is supported so you
+spew to handles such as \*STDOUT. See the test handle.t for an example
+that does C<open( '-|' )> and child process spews data to the parent
+which slurps it in.  All of the options that control how the data are
+passed into C<write_file> still work in this case.
 
-C<write_file> returns 1 upon successfully writing the file or undef if
-it encountered an error.
+If the first argument is an overloaded object then its stringified value
+is used for the filename and that file is opened.  This is new feature
+in 9999.14. See the stringify.t test for an example.
+
+By default C<write_file> returns 1 upon successfully writing the file or
+undef if it encountered an error. You can change how errors are handled
+with the C<err_mode> option.
 
 The options are:
 
@@ -633,12 +866,20 @@ NOTE: this actually sets the O_BINARY mode flag for sysopen. It
 probably should call binmode and pass its argument to support other
 file modes.
 
+=head3 perms
+
+The perms option sets the permissions of newly-created files. This value
+is modified by your process's umask and defaults to 0666 (same as
+sysopen).
+
+NOTE: this option is new as of File::Slurp version 9999.14;
+
 =head3 buf_ref
 
 You can use this option to pass in a scalar reference which has the
 data to be written. If this is set then any data arguments (including
 the scalar reference shortcut) in @_ will be ignored. These are
-equivilent:
+equivalent:
 
 	write_file( $bin_file, { buf_ref => \$buffer } ) ;
 	write_file( $bin_file, \$buffer ) ;
@@ -657,14 +898,12 @@ be left behind.
 =head3 append
 
 If you set this boolean option, the data will be written at the end of
-the current file.
+the current file. Internally this sets the sysopen mode flag O_APPEND.
 
 	write_file( $file, {append => 1}, @data ) ;
 
-C<write_file> croaks if it cannot open the file. It returns true if it
-succeeded in writing out the file and undef if there was an
-error. (Yes, I know if it croaks it can't return anything but that is
-for when I add the options to select the error handling mode).
+ You
+can import append_file and it does the same thing.
 
 =head3 no_clobber
 
@@ -698,7 +937,7 @@ write_file for its API and behavior.
 
 This sub will write its data to the end of the file. It is a wrapper
 around write_file and it has the same API so see that for the full
-documentation. These calls are equivilent:
+documentation. These calls are equivalent:
 
 	append_file( $file, @data ) ;
 	write_file( $file, {append => 1}, @data ) ;
@@ -710,11 +949,17 @@ the caller but C<.> and C<..> are removed by default.
 
 	my @files = read_dir( '/path/to/dir' ) ;
 
-It croaks if it cannot open the directory.
+The first argument is the path to the directory to read. The rest of the
+arguments are a list key/value options.
 
-In a list context C<read_dir> returns a list of the entries in the
+In list context C<read_dir> returns a list of the entries in the
 directory. In a scalar context it returns an array reference which has
 the entries.
+
+=head3 err_mode
+
+If the C<err_mode> option is set, it selects how errors are handled (see
+C<err_mode> in C<read_file> or C<write_file>).
 
 =head3 keep_dot_dot
 
@@ -726,6 +971,10 @@ list of files.
 =head2 EXPORT
 
   read_file write_file overwrite_file append_file read_dir
+
+=head2 LICENSE
+
+  Same as Perl.
 
 =head2 SEE ALSO
 

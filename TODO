@@ -1,0 +1,29 @@
+
+File::Slurp TODO
+
+NEW FEATURES
+
+prepend_file() -- prepend text to the front of a file
+
+	options: lock file?
+
+edit_file() -- slurp into $_, call edit code block, write out $_
+
+	options: lock file?
+
+edit_file_lines()  -- slurp each line into $_, call edit code block,
+	write out $_
+
+	options: lock file?
+
+new options for read_dir
+	prepend_dir -- prepend the dir name to each dir entry.
+	filter -- grep dir entries with qr// or code ref.
+
+BUGS:
+
+restart sysread/write after a signal (or check i/o count)
+
+FEATURE REQUESTS
+
+check for objects/refs to filenames

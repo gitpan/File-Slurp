@@ -1,6 +1,7 @@
 #!/usr/local/bin/perl -w
 
 use strict ;
+use File::Slurp ;
 
 use Carp ;
 use POSIX qw( :fcntl_h ) ;
@@ -11,7 +12,7 @@ use Test::More ;
 # in case SEEK_SET isn't defined in older perls. it seems to always be 0
 
 BEGIN {
-	*SEEK_SET = sub { 0 } unless eval { defined SEEK_SET() } ;
+	*SEEK_SET = sub() { 0 } unless defined \&SEEK_SET ;
 }
 
 my @pipe_data = (
@@ -21,11 +22,7 @@ my @pipe_data = (
 	'abc' x 1_000_000,
 ) ;
 
-#plan( tests => 2 + @pipe_data ) ;
-plan( tests => 1 + scalar @pipe_data ) ;
-
-
-use_ok( 'File::Slurp', )  ;
+plan( tests => scalar @pipe_data ) ;
 
 #test_data_slurp() ;
 
@@ -49,7 +46,7 @@ sub test_socketpair_slurp {
 
 		socketpair( $read_fh, $write_fh,
 				AF_UNIX, SOCK_STREAM, PF_UNSPEC);
-                
+
 		if ( fork() ) {
 
 #warn "PARENT SOCKET\n" ;
@@ -65,7 +62,7 @@ sub test_socketpair_slurp {
 #child
 #warn "CHILD SOCKET\n" ;
 			close( $read_fh ) ;
-			write_file( $write_fh, $data ) ;
+			eval { write_file( $write_fh, $data ) } ;
 			exit() ;
 		}
 	}

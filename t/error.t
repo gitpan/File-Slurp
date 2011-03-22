@@ -1,63 +1,136 @@
 ##!/usr/local/bin/perl -w
 
+use lib qw(t) ;
 use strict ;
+use Test::More ;
 
-use Test::More tests => 10 ;
-use Carp ;
-
-BEGIN{ 
-	use_ok( 'File::Slurp', ) ;
-}
-use File::Slurp ;
-
-
-my $file = 'missing/file' ;
-unlink $file ;
-
-my %modes = (
-	'croak' => \&test_croak,
-	'carp' => \&test_carp,
-	'quiet' => \&test_quiet,
-) ;
-
-while( my( $mode, $sub ) = each %modes ) {
-
-	$sub->( 'read_file', \&read_file, $file, err_mode => $mode ) ;
-	$sub->( 'write_file', \&write_file, $file,
-					{ err_mode => $mode }, 'junk' ) ;
-	$sub->( 'read_dir', \&read_dir, $file, err_mode => $mode ) ;
+BEGIN {
+	plan skip_all => "these tests need Perl 5.5" if $] < 5.005 ;
 }
 
+use TestDriver ;
+use File::Slurp qw( :all ) ;
 
-sub test_croak {
+my $is_win32 = $^O =~ /cygwin|win32/i ;
 
-	my ( $name, $sub, @args ) = @_ ;
+my $file_name = 'test_file' ;
+my $dir_name = 'test_dir' ;
 
-	eval {
-		$sub->( @args ) ;
-	} ;
+my $tests = [
 
-	ok( $@, "$name can croak" ) ;
-}
+	{
+skip => 1,
+		name	=> 'read_file open error',
+		sub	=> \&read_file,
+		args	=> [ $file_name ],
 
-sub test_carp {
+		error => qr/open/,
+	},
 
-	my ( $name, $sub, @args ) = @_ ;
+	{
+skip => 1,
+		name	=> 'write_file open error',
+		sub	=> \&write_file,
+		args	=> [ "$dir_name/$file_name", '' ],
+		pretest => sub {
+			mkdir $dir_name, 0550 ;
+			chmod( 0555, $dir_name ) ;
+		},
 
-	local $SIG{__WARN__} = sub { ok( 1, "$name can carp" ) } ;
+		posttest => sub {
 
-	$sub->( @args ) ;
-}
+			chmod( 0777, $dir_name ) ;
+			rmdir $dir_name ;
+		},
 
-sub test_quiet {
+		error => qr/open/,
+	},
 
-	my ( $name, $sub, @args ) = @_ ;
+	{
+skip => 1,
+		name	=> 'write_file syswrite error',
+		sub	=> \&write_file,
+		args	=> [ $file_name, '' ],
+		override	=> 'syswrite',
 
-	local $SIG{__WARN__} = sub { ok( 0, "$name can be quiet" ) } ;
+		posttest => sub {
+			unlink( $file_name ) ;
+		},
 
-	eval {
-		$sub->( @args ) ;
-	} ;
 
-	ok( !$@, "$name can be quiet" ) ;
-}
+		error => qr/write/,
+	},
+
+	{
+skip => 1,
+		name	=> 'read_file small sysread error',
+		sub	=> \&read_file,
+		args	=> [ $file_name ],
+		override	=> 'sysread',
+
+		pretest => sub {
+			write_file( $file_name, '' ) ;
+		},
+
+		posttest => sub {
+			unlink( $file_name ) ;
+		},
+
+
+		error => qr/read/,
+	},
+
+	{
+skip => 1,
+		name	=> 'read_file loop sysread error',
+		sub	=> \&read_file,
+		args	=> [ $file_name ],
+		override	=> 'sysread',
+
+		pretest => sub {
+			write_file( $file_name, 'x' x 100_000 ) ;
+		},
+
+		posttest => sub {
+			unlink( $file_name ) ;
+		},
+
+
+		error => qr/read/,
+	},
+
+	{
+		name	=> 'atomic rename error',
+		skip	=> $is_win32,		# meaningless on Win32
+		sub	=> \&write_file,
+		args	=> [ "$dir_name/$file_name", { atomic => 1 }, '' ],
+		pretest => sub {
+			mkdir $dir_name, 0700 ;
+			write_file( "$dir_name/$file_name.$$", '' ) ;
+			chmod( 0555, $dir_name ) ;
+		},
+
+		posttest => sub {
+
+			chmod( 0777, $dir_name ) ;
+			unlink( "$dir_name/$file_name.$$" ) ;
+			rmdir $dir_name ;
+		},
+
+		error => qr/rename/,
+	},
+
+	{
+skip => 1,
+		name	=> 'read_dir opendir error',
+		sub	=> \&read_dir,
+		args	=> [ $dir_name ],
+
+		error => qr/open/,
+	},
+] ;
+
+test_driver( $tests ) ;
+
+exit ;
+

@@ -4,6 +4,7 @@ use strict ;
 
 use Test::More ;
 use Carp ;
+use File::Slurp ;
 
 my $file = 'slurp.data' ;
 unlink $file ;
@@ -40,10 +41,7 @@ foreach my $size ( @bin_sizes ) {
 	push @bin_data, $data ;
 }
 
-plan( tests => 1 + ( 16 * @text_data + 8 * @bin_data ) ) ;
-
-use_ok( 'File::Slurp', ) ;
-
+plan( tests => 16 * @text_data + 8 * @bin_data ) ;
 
 #print "# text slurp\n" ;
 
@@ -54,9 +52,14 @@ foreach my $data ( @text_data ) {
 
 #print "# BIN slurp\n" ;
 
-foreach my $data ( @bin_data ) {
+SKIP: {
+	skip "binmode not available in this version of Perl", 8 * @bin_data
+		if $] < 5.006 ;
 
-	test_bin_slurp( $data ) ;
+	foreach my $data ( @bin_data ) {
+
+		test_bin_slurp( $data ) ;
+	}
 }
 
 unlink $file ;
