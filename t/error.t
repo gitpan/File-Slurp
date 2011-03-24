@@ -17,116 +17,60 @@ my $file_name = 'test_file' ;
 my $dir_name = 'test_dir' ;
 
 my $tests = [
-
 	{
-skip => 1,
 		name	=> 'read_file open error',
 		sub	=> \&read_file,
 		args	=> [ $file_name ],
-
-		error => qr/open/,
+		error	=> qr/open/,
 	},
-
 	{
-skip => 1,
 		name	=> 'write_file open error',
 		sub	=> \&write_file,
-		args	=> [ "$dir_name/$file_name", '' ],
-		pretest => sub {
-			mkdir $dir_name, 0550 ;
-			chmod( 0555, $dir_name ) ;
-		},
-
-		posttest => sub {
-
-			chmod( 0777, $dir_name ) ;
-			rmdir $dir_name ;
-		},
-
-		error => qr/open/,
+ 		args	=> [ $file_name, '' ],
+ 		override => 'sysopen',
+		error	=> qr/open/,
 	},
-
 	{
-skip => 1,
 		name	=> 'write_file syswrite error',
 		sub	=> \&write_file,
 		args	=> [ $file_name, '' ],
-		override	=> 'syswrite',
-
-		posttest => sub {
-			unlink( $file_name ) ;
-		},
-
-
-		error => qr/write/,
+		override => 'syswrite',
+		posttest => sub { unlink( $file_name ) },
+		error	=> qr/write/,
 	},
-
 	{
-skip => 1,
 		name	=> 'read_file small sysread error',
 		sub	=> \&read_file,
 		args	=> [ $file_name ],
-		override	=> 'sysread',
-
-		pretest => sub {
-			write_file( $file_name, '' ) ;
-		},
-
-		posttest => sub {
-			unlink( $file_name ) ;
-		},
-
-
-		error => qr/read/,
+		override => 'sysread',
+		pretest => sub { write_file( $file_name, '' ) },
+		posttest => sub { unlink( $file_name ) },
+		error	=> qr/read/,
 	},
-
 	{
-skip => 1,
 		name	=> 'read_file loop sysread error',
 		sub	=> \&read_file,
 		args	=> [ $file_name ],
-		override	=> 'sysread',
-
-		pretest => sub {
-			write_file( $file_name, 'x' x 100_000 ) ;
-		},
-
-		posttest => sub {
-			unlink( $file_name ) ;
-		},
-
-
-		error => qr/read/,
+		override => 'sysread',
+		pretest => sub { write_file( $file_name, 'x' x 100_000 ) },
+		posttest => sub { unlink( $file_name ) },
+		error	=> qr/read/,
 	},
-
 	{
 		name	=> 'atomic rename error',
-		skip	=> $is_win32,		# meaningless on Win32
+# this test is meaningless on Win32
+		skip	=> $is_win32,
 		sub	=> \&write_file,
-		args	=> [ "$dir_name/$file_name", { atomic => 1 }, '' ],
-		pretest => sub {
-			mkdir $dir_name, 0700 ;
-			write_file( "$dir_name/$file_name.$$", '' ) ;
-			chmod( 0555, $dir_name ) ;
-		},
-
-		posttest => sub {
-
-			chmod( 0777, $dir_name ) ;
-			unlink( "$dir_name/$file_name.$$" ) ;
-			rmdir $dir_name ;
-		},
-
-		error => qr/rename/,
+		args	=> [ $file_name, { atomic => 1 }, '' ],
+		override => 'rename',
+		posttest => sub { unlink( $file_name, "$file_name.$$" ) },
+		error	=> qr/rename/,
 	},
-
 	{
-skip => 1,
 		name	=> 'read_dir opendir error',
 		sub	=> \&read_dir,
 		args	=> [ $dir_name ],
-
-		error => qr/open/,
+		error	=> qr/open/,
 	},
 ] ;
 

@@ -1,7 +1,7 @@
 --- #YAML:1.0
 name:                File-Slurp
-version:             9999.14
-abstract:            Efficient Reading/Writing of Complete Files
+version:             9999.15
+abstract:            Simple and Efficient Reading/Writing of Complete Files
 license:             perl
 author:              
     - Uri Guttman <uri@stemsystems.com>

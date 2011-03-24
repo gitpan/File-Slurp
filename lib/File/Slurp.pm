@@ -20,7 +20,7 @@ use vars qw( @ISA %EXPORT_TAGS @EXPORT_OK $VERSION @EXPORT ) ;
 @EXPORT = ( @{ $EXPORT_TAGS{'all'} } );
 @EXPORT_OK = qw( slurp ) ;
 
-$VERSION = '9999.14';
+$VERSION = '9999.15';
 
 my $max_fast_slurp_size = 1024 * 100 ;
 
@@ -547,6 +547,7 @@ sub write_file {
 
 # handle the atomic mode - move the temp file to the original filename.
 
+
 	if ( $args->{'atomic'} && !rename( $file_name, $orig_file_name ) ) {
 
 		@_ = ( $args, "write_file '$file_name' - rename: $!" ) ;
@@ -751,8 +752,9 @@ The options are:
 
 =head3 binmode
 
-If you set the binmode option, then the option will be passed to a
-binmode call on the opened filehandle.
+If you set the binmode option, then its value is passed to a call to
+binmode on the opened handle. You can use this to set the file to be
+read in binary mode, utf8, etc. See perldoc -f binmode for more.
 
 	my $bin_data = read_file( $bin_file, binmode => ':raw' ) ;
 	my $utf_text = read_file( $bin_file, binmode => ':utf8' ) ;
@@ -857,14 +859,12 @@ The options are:
 
 =head3 binmode
 
-If you set the binmode option, then the file will be written in binary
-mode.
+If you set the binmode option, then its value is passed to a call to
+binmode on the opened handle. You can use this to set the file to be
+read in binary mode, utf8, etc. See perldoc -f binmode for more.
 
 	write_file( $bin_file, {binmode => ':raw'}, @data ) ;
-
-NOTE: this actually sets the O_BINARY mode flag for sysopen. It
-probably should call binmode and pass its argument to support other
-file modes.
+	write_file( $bin_file, {binmode => ':utf8'}, $utf_text ) ;
 
 =head3 perms
 

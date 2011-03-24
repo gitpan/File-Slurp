@@ -104,6 +104,28 @@ my $tests = [
 		},
 		posttest => sub { $_[0]->{result} = read_file( $file ) },
 	},
+	{
+		name	=> 'utf8',
+		sub	=> \&edit_file,
+		code	=> sub { s/abc// },
+		pretest	=> sub {
+			my( $test ) = @_ ;
+
+			my $orig_text = "abc\x{20ac}\n" ;
+			$orig_text =~ s/\n/\015\012/ if $^O =~ /win32/i ;
+			write_file( $file, {binmode => ':utf8'}, $orig_text ) ;
+			$test->{args} = [
+				$test->{code},
+				$file,
+				{ binmode => ':utf8' },
+			] ;
+			( $test->{expected} ) =
+				map { $test->{code}() ; $_ } $orig_text ;
+		},
+		posttest => sub { $_[0]->{result} =
+			read_file( $file, binmode => ':utf8' )
+		},
+	},
 ] ;
 
 test_driver( $tests ) ;

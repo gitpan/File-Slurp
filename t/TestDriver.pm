@@ -8,6 +8,12 @@ BEGIN {
 
 	*CORE::GLOBAL::sysread =
 	sub(*\$$;$) { my( $h, $b, $s ) = @_; CORE::sysread $h, $b, $s } ;
+
+	*CORE::GLOBAL::rename =
+	sub($$) { my( $old, $new ) = @_; CORE::rename $old, $new } ;
+
+	*CORE::GLOBAL::sysopen =
+	sub(*$$;$) { my( $h, $n, $m, $p ) = @_; CORE::sysopen $h, $n, $m, $p } ;
 }
 
 sub test_driver {

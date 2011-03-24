@@ -1,5 +1,10 @@
 Revision history File::Slurp
 
+9999.15   Thu Mar 24 16:40:19 EDT 2011
+	- Fixed error.t test so it works when run as root
+	- Removed skip lines from error.t
+	- Fixed pod about binmode option to reflect changes in .14
+
 9999.14	  Sun Mar 20 16:26:47 EDT 2011
 	- Added LICENCE (same as perl) to POD
 	- Added special faster code to slurp in small text files which
