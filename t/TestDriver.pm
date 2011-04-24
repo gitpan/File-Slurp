@@ -40,7 +40,7 @@ use Data::Dumper ;
 		my $override = $test->{override} ;
 
 # run any setup sub before this test. this can is used to modify the
-# object for this test (e.g. delete templates from the cache).
+# object for this test or create test files and data.
 
 		if( my $pretest = $test->{pretest} ) {
 
@@ -81,6 +81,7 @@ use Data::Dumper ;
 		ok( $test->{ok}, $test->{name} ) if exists $test->{ok} ;
 		is( $test->{result}, $test->{expected}, $test->{name} ) if
 			exists $test->{expected} ;
+
 	}
 }
 

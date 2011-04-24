@@ -41,7 +41,7 @@ foreach my $size ( @bin_sizes ) {
 	push @bin_data, $data ;
 }
 
-plan( tests => 16 * @text_data + 8 * @bin_data ) ;
+plan( tests => 17 * @text_data + 8 * @bin_data ) ;
 
 #print "# text slurp\n" ;
 
@@ -119,9 +119,13 @@ sub test_text_slurp {
 		 "EXP:\n", map( "[$_]\n", @data_lines )
 			unless eq_array( \@array, \@data_lines ) ;
 
- 	my $array_ref = read_file( $file, array_ref => 1 ) ;
+	my $array_ref = read_file( $file, array_ref => 1 ) ;
 	ok( eq_array( $array_ref, \@data_lines ),
  			'array ref read_file - ' . length $data_text ) ;
+
+	($array_ref) = read_file( $file, {array_ref => 1} ) ;
+	ok( eq_array( $array_ref, \@data_lines ),
+	'array ref list context args ref read_file - ' . length $data_text ) ;
 
 	$err = write_file( $file, { append => 1 }, $data_text ) ;
 	ok( $err, 'write_file append - ' . length $data_text ) ;

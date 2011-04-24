@@ -18,9 +18,9 @@ use vars qw( @ISA %EXPORT_TAGS @EXPORT_OK $VERSION @EXPORT ) ;
 	qw( read_file write_file overwrite_file append_file read_dir ) ] ) ;
 
 @EXPORT = ( @{ $EXPORT_TAGS{'all'} } );
-@EXPORT_OK = qw( slurp ) ;
+@EXPORT_OK = qw( slurp prepend_file ) ;
 
-$VERSION = '9999.15';
+$VERSION = '9999.16';
 
 my $max_fast_slurp_size = 1024 * 100 ;
 
@@ -79,16 +79,17 @@ BEGIN {
 
 sub read_file {
 
-	my( $file_name, %args ) = @_ ;
+	my $file_name = shift ;
+	my $opts = ( ref $_[0] eq 'HASH' ) ? shift : { @_ } ;
 
 	if ( !ref $file_name && 0 &&
-	     -e $file_name && -s _ < $max_fast_slurp_size && ! %args && !wantarray ) {
+	     -e $file_name && -s _ < $max_fast_slurp_size && ! %{$opts} && !wantarray ) {
 
 		local( *FH ) ;
 
 		unless( open( FH, $file_name ) ) {
 
-			@_ = ( \%args, "read_file '$file_name' - sysopen: $!");
+			@_ = ( $opts, "read_file '$file_name' - sysopen: $!");
 			goto &_error ;
 		}
 
@@ -98,7 +99,7 @@ sub read_file {
 
 # handle the read error
 
-			@_ = ( \%args,
+			@_ = ( $opts,
 				"read_file '$file_name' - small sysread: $!");
 			goto &_error ;
 		}
@@ -110,7 +111,7 @@ sub read_file {
 # string
 
 	my $buf ;
-	my $buf_ref = $args{'buf_ref'} || \$buf ;
+	my $buf_ref = $opts->{'buf_ref'} || \$buf ;
 	${$buf_ref} = '' ;
 
 	my( $read_fh, $size_left, $blk_size ) ;
@@ -126,7 +127,7 @@ sub read_file {
 
 # we got an error, deal with it
 
-			@_ = ( \%args, $ref_result ) ;
+			@_ = ( $opts, $ref_result ) ;
 			goto &_error ;
 		}
 
@@ -142,7 +143,7 @@ sub read_file {
 # here we have just an open handle. set $read_fh so we don't do a sysopen
 
 			$read_fh = $file_name ;
-			$blk_size = $args{'blk_size'} || 1024 * 1024 ;
+			$blk_size = $opts->{'blk_size'} || 1024 * 1024 ;
 			$size_left = $blk_size ;
 		}
 	}
@@ -161,11 +162,11 @@ sub read_file {
 
 		$read_fh = gensym ;
 		unless ( sysopen( $read_fh, $file_name, $mode ) ) {
-			@_ = ( \%args, "read_file '$file_name' - sysopen: $!");
+			@_ = ( $opts, "read_file '$file_name' - sysopen: $!");
 			goto &_error ;
 		}
 
-		if ( my $binmode = $args{'binmode'} ) {
+		if ( my $binmode = $opts->{'binmode'} ) {
 			binmode( $read_fh, $binmode ) ;
 		}
 
@@ -181,13 +182,13 @@ sub read_file {
 
 		unless( $size_left ) {
 
-			$blk_size = $args{'blk_size'} || 1024 * 1024 ;
+			$blk_size = $opts->{'blk_size'} || 1024 * 1024 ;
 			$size_left = $blk_size ;
 		}
 	}
 
 
-# 	if ( $size_left < 10000 && keys %args == 0 && !wantarray ) {
+# 	if ( $size_left < 10000 && keys %{$opts} == 0 && !wantarray ) {
 
 # #print "OPT\n" and $printed++ unless $printed ;
 
@@ -197,7 +198,7 @@ sub read_file {
 
 # # handle the read error
 
-# 			@_ = ( \%args, "read_file '$file_name' - small2 sysread: $!");
+# 			@_ = ( $opts, "read_file '$file_name' - small2 sysread: $!");
 # 			goto &_error ;
 # 		}
 
@@ -217,7 +218,7 @@ sub read_file {
 
 # handle the read error
 
-			@_ = ( \%args, "read_file '$file_name' - loop sysread: $!");
+			@_ = ( $opts, "read_file '$file_name' - loop sysread: $!");
 			goto &_error ;
 		}
 
@@ -237,7 +238,7 @@ sub read_file {
 
 # fix up cr/lf to be a newline if this is a windows text file
 
-	${$buf_ref} =~ s/\015\012/\n/g if $is_win32 && !$args{'binmode'} ;
+	${$buf_ref} =~ s/\015\012/\n/g if $is_win32 && !$opts->{'binmode'} ;
 
 # this is the 5 returns in a row. each handles one possible
 # combination of caller context and requested return type
@@ -247,7 +248,7 @@ sub read_file {
 
 # see if caller wants lines
 
-	if( wantarray || $args{'array_ref'} ) {
+	if( wantarray || $opts->{'array_ref'} ) {
 
 		my @parts = split m/($sep)/, ${$buf_ref}, -1;
 
@@ -261,13 +262,13 @@ sub read_file {
 
 		push @lines, shift @parts if @parts && length $parts[0] ;
 
-		return @lines if wantarray ;
-		return \@lines ;
+		return \@lines if $opts->{'array_ref'} ;
+		return @lines ;
 	}
 
 # caller wants a scalar ref to the slurped text
 
-	return $buf_ref if $args{'scalar_ref'} ;
+	return $buf_ref if $opts->{'scalar_ref'} ;
 
 # caller wants a scalar with the slurped text (normal scalar context)
 
@@ -282,9 +283,9 @@ sub read_file {
 
 # # this split doesn't work since it tries to use variable length lookbehind
 # # the m// line works.
-# #	return [ split( m|(?<=$sep)|, ${$buf_ref} ) ] if $args{'array_ref'}  ;
+# #	return [ split( m|(?<=$sep)|, ${$buf_ref} ) ] if $opts->{'array_ref'}  ;
 # 	return [ length(${$buf_ref}) ? ${$buf_ref} =~ /(.*?$sep|.+)/sg : () ]
-# 		if $args{'array_ref'}  ;
+# 		if $opts->{'array_ref'}  ;
 
 # # caller wants a list of lines (normal list context)
 
@@ -295,7 +296,7 @@ sub read_file {
 
 # # caller wants a scalar ref to the slurped text
 
-# 	return $buf_ref if $args{'scalar_ref'} ;
+# 	return $buf_ref if $opts->{'scalar_ref'} ;
 
 # # caller wants a scalar with the slurped text (normal scalar context)
 
@@ -387,19 +388,19 @@ sub write_file {
 
 # get the optional argument hash ref from @_ or an empty hash ref.
 
-	my $args = ( ref $_[0] eq 'HASH' ) ? shift : {} ;
+	my $opts = ( ref $_[0] eq 'HASH' ) ? shift : {} ;
 
 	my( $buf_ref, $write_fh, $no_truncate, $orig_file_name, $data_is_ref ) ;
 
 # get the buffer ref - it depends on how the data is passed into write_file
 # after this if/else $buf_ref will have a scalar ref to the data.
 
-	if ( ref $args->{'buf_ref'} eq 'SCALAR' ) {
+	if ( ref $opts->{'buf_ref'} eq 'SCALAR' ) {
 
-# a scalar ref passed in %args has the data
+# a scalar ref passed in %opts has the data
 # note that the data was passed by ref
 
-		$buf_ref = $args->{'buf_ref'} ;
+		$buf_ref = $opts->{'buf_ref'} ;
 		$data_is_ref = 1 ;
 	}
 	elsif ( ref $_[0] eq 'SCALAR' ) {
@@ -433,7 +434,7 @@ sub write_file {
 
 # we got an error, deal with it
 
-			@_ = ( $args, $ref_result ) ;
+			@_ = ( $opts, $ref_result ) ;
 			goto &_error ;
 		}
 
@@ -460,7 +461,7 @@ sub write_file {
 
 # spew to regular file.
 
-		if ( $args->{'atomic'} ) {
+		if ( $opts->{'atomic'} ) {
 
 # in atomic mode, we spew to a temp file so make one and save the original
 # file name.
@@ -471,10 +472,10 @@ sub write_file {
 # set the mode for the sysopen
 
 		my $mode = O_WRONLY | O_CREAT ;
-		$mode |= O_APPEND if $args->{'append'} ;
-		$mode |= O_EXCL if $args->{'no_clobber'} ;
+		$mode |= O_APPEND if $opts->{'append'} ;
+		$mode |= O_EXCL if $opts->{'no_clobber'} ;
 
-		my $perms = $args->{perms} ;
+		my $perms = $opts->{perms} ;
 		$perms = 0666 unless defined $perms ;
 
 #printf "WR: BINARY %x MODE %x\n", O_BINARY, $mode ;
@@ -483,23 +484,24 @@ sub write_file {
 
 		$write_fh = gensym ;
 		unless ( sysopen( $write_fh, $file_name, $mode, $perms ) ) {
-			@_ = ( $args, "write_file '$file_name' - sysopen: $!");
+
+			@_ = ( $opts, "write_file '$file_name' - sysopen: $!");
 			goto &_error ;
 		}
 	}
 
-	if ( my $binmode = $args->{'binmode'} ) {
+	if ( my $binmode = $opts->{'binmode'} ) {
 		binmode( $write_fh, $binmode ) ;
 	}
 
-	sysseek( $write_fh, 0, SEEK_END ) if $args->{'append'} ;
+	sysseek( $write_fh, 0, SEEK_END ) if $opts->{'append'} ;
 
 
 #print 'WR before data ', unpack( 'H*', ${$buf_ref}), "\n" ;
 
 # fix up newline to write cr/lf if this is a windows text file
 
-	if ( $is_win32 && !$args->{'binmode'} ) {
+	if ( $is_win32 && !$opts->{'binmode'} ) {
 
 # copy the write data if it was passed by ref so we don't clobber the
 # caller's data
@@ -526,7 +528,7 @@ sub write_file {
 		unless ( defined $write_cnt ) {
 
 # the write failed
-			@_ = ( $args, "write_file '$file_name' - syswrite: $!");
+			@_ = ( $opts, "write_file '$file_name' - syswrite: $!");
 			goto &_error ;
 		}
 
@@ -547,10 +549,9 @@ sub write_file {
 
 # handle the atomic mode - move the temp file to the original filename.
 
+	if ( $opts->{'atomic'} && !rename( $file_name, $orig_file_name ) ) {
 
-	if ( $args->{'atomic'} && !rename( $file_name, $orig_file_name ) ) {
-
-		@_ = ( $args, "write_file '$file_name' - rename: $!" ) ;
+		@_ = ( $opts, "write_file '$file_name' - rename: $!" ) ;
 		goto &_error ;
 	}
 
@@ -568,17 +569,17 @@ sub write_file {
 
 sub append_file {
 
-# get the optional args hash ref
-	my $args = $_[1] ;
-	if ( ref $args eq 'HASH' ) {
+# get the optional opts hash ref
+	my $opts = $_[1] ;
+	if ( ref $opts eq 'HASH' ) {
 
-# we were passed an args ref so just mark the append mode
+# we were passed an opts ref so just mark the append mode
 
-		$args->{append} = 1 ;
+		$opts->{append} = 1 ;
 	}
 	else {
 
-# no args hash so insert one with the append mode
+# no opts hash so insert one with the append mode
 
 		splice( @_, 1, 0, { append => 1 } ) ;
 	}
@@ -591,9 +592,70 @@ sub append_file {
 
 # basic wrapper around opendir/readdir
 
+# prepend data to the beginning of a file
+
+sub prepend_file {
+
+	my $file_name = shift ;
+
+#print "FILE $file_name\n" ;
+
+	my $opts = ( ref $_[0] eq 'HASH' ) ? shift : {} ;
+
+# delete unsupported options
+
+	my @bad_opts =
+		grep $_ ne 'err_mode' && $_ ne 'binmode', keys %{$opts} ;
+
+	delete @{$opts}{@bad_opts} ;
+
+	my $prepend_data = shift ;
+	$prepend_data = '' unless defined $prepend_data ;
+	$prepend_data = ${$prepend_data} if ref $prepend_data eq 'SCALAR' ;
+
+#print "PRE [$prepend_data]\n" ;
+
+
+###### set croak as error_mode
+###### wrap in eval
+
+	my $err_mode = delete $opts->{err_mode} ;
+	$opts->{ err_mode } = 'croak' ;
+	$opts->{ scalar_ref } = 1 ;
+
+	my $existing_data ;
+	eval { $existing_data = read_file( $file_name, $opts ) } ;
+
+	if ( $@ ) {
+
+		@_ = ( { err_mode => $err_mode },
+			"prepend_file '$file_name' - read_file: $!" ) ;
+		goto &_error ;
+	}
+
+#print "EXIST [$$existing_data]\n" ;
+
+	$opts->{ atomic } = 1 ;
+
+	my $write_result = eval { 
+		write_file( $file_name, $opts,
+			$prepend_data, $$existing_data ) ;
+	} ;
+
+	if ( $@ ) {
+
+		@_ = ( { err_mode => $err_mode },
+			"prepend_file '$file_name' - write_file: $!" ) ;
+		goto &_error ;
+	}
+
+	return $write_result ;
+}
+
 sub read_dir {
 
-	my ($dir, %args ) = @_;
+	my $dir = shift ;
+	my $opts = ( ref $_[0] eq 'HASH' ) ? shift : { @_ } ;
 
 # this handle will be destroyed upon return
 
@@ -603,14 +665,14 @@ sub read_dir {
 
 	unless ( opendir( DIRH, $dir ) ) {
 
-		@_ = ( \%args, "read_dir '$dir' - opendir: $!" ) ;
+		@_ = ( $opts, "read_dir '$dir' - opendir: $!" ) ;
 		goto &_error ;
 	}
 
 	my @dir_entries = readdir(DIRH) ;
 
 	@dir_entries = grep( $_ ne "." && $_ ne "..", @dir_entries )
-		unless $args{'keep_dot_dot'} ;
+		unless $opts->{'keep_dot_dot'} ;
 
 	return @dir_entries if wantarray ;
 	return \@dir_entries ;
@@ -632,11 +694,11 @@ my %err_func = (
 
 sub _error {
 
-	my( $args, $err_msg ) = @_ ;
+	my( $opts, $err_msg ) = @_ ;
 
 # get the error function to use
 
- 	my $func = $err_func{ $args->{'err_mode'} || 'croak' } ;
+ 	my $func = $err_func{ $opts->{'err_mode'} || 'croak' } ;
 
 # if we didn't find it in our error function hash, they must have set
 # it to quiet and we don't do anything.
@@ -710,35 +772,36 @@ and file sizes. Use the --help option to see how to run it.
 =head2 B<read_file>
 
 This sub reads in an entire file and returns its contents to the
-caller. In list context it will return a list of lines (using the
+caller.  In scalar context it returns the entire file as a single
+scalar. In list context it will return a list of lines (using the
 current value of $/ as the separator including support for paragraph
-mode when it is set to ''). In scalar context it returns the entire
-file as a single scalar.
+mode when it is set to '').
 
   my $text = read_file( 'filename' ) ;
+  my $bin = read_file( 'filename' { binmode => ':raw' } ) ;
   my @lines = read_file( 'filename' ) ;
+  my $lines = read_file( 'filename', array_ref => 1 ) ;
+
+The first argument is the file to slurp in. If the next argument is a
+hash reference, then it is used as the options. Otherwise the rest of
+the argument list are is used as key/value options.
+
+If the file argument is a handle (if it is a ref and is an IO or GLOB
+object), then that handle is slurped in. This mode is supported so you
+slurp handles such as C<DATA> and C<STDIN>. See the test handle.t for
+an example that does C<open( '-|' )> and the child process spews data
+to the parant which slurps it in.  All of the options that control how
+the data is returned to the caller still work in this case.
+
+If the first argument is an overloaded object then its stringified value
+is used for the filename and that file is opened.  This is a new feature
+in 9999.14. See the stringify.t test for an example.
 
 By default C<read_file> returns an undef in scalar contex or a single
 undef in list context if it encounters an error. Those are both
 impossible to get with a clean read_file call which means you can check
 the return value and always know if you had an error. You can change how
 errors are handled with the C<err_mode> option.
-
-The first argument to C<read_file> is the filename and the rest of the
-arguments are key/value pairs which are optional and which modify the
-behavior of the call. Other than binmode the options all control how
-the slurped file is returned to the caller or how errors are handled.
-
-If the first argument is a handle (if it is a ref and is an IO or GLOB
-object), then that handle is slurped in. This mode is supported so you
-slurp handles such as C<DATA>, C<STDIN>. See the test handle.t for an
-example that does C<open( '-|' )> and child process spews data to the
-parant which slurps it in.  All of the options that control how the data
-is returned to the caller still work in this case.
-
-If the first argument is an overloaded object then its stringified value
-is used for the filename and that file is opened.  This is a new feature
-in 9999.14. See the stringify.t test for an example.
 
 NOTE: as of version 9999.06, read_file works correctly on the C<DATA>
 handle. It used to need a sysseek workaround but that is now handled
@@ -748,7 +811,7 @@ You can optionally request that C<slurp()> is exported to your code. This
 is an alias for read_file and is meant to be forward compatible with
 Perl 6 (which will have slurp() built-in).
 
-The options are:
+The options for C<read_file> are:
 
 =head3 binmode
 
@@ -785,13 +848,12 @@ file contents will be stored in the scalar. This can be used in
 conjunction with any of the other options. This saves an extra copy of
 the slurped file and can lower ram usage vs returning the file.
 
-	my $text_ref = read_file( $bin_file, buf_ref => \$buffer,
-					     array_ref => 1 ) ;
-	my @lines = read_file( $bin_file, buf_ref => \$buffer ) ;
+	read_file( $bin_file, buf_ref => \$buffer ) ;
 
 =head3 blk_size
 
-You can use this option to set the block size used when slurping from an already open handle (like \*STDIN). It defaults to 1MB.
+You can use this option to set the block size used when slurping from
+an already open handle (like \*STDIN). It defaults to 1MB.
 
 	my $text_ref = read_file( $bin_file, blk_size => 10_000_000,
 					     array_ref => 1 ) ;
@@ -942,6 +1004,33 @@ documentation. These calls are equivalent:
 	append_file( $file, @data ) ;
 	write_file( $file, {append => 1}, @data ) ;
 
+
+=head2 prepend_file
+
+This sub writes data to the beginning of a file. The previously existing
+data is written after that so the effect is prepending data in front of
+a file. It is a counterpart to the append_file sub in this module. It
+works by first using C<read_file> to slurp in the file and then calling
+C<write_file> with the new data and the existing file data.
+
+The first argument to C<prepend_file> is the filename. The next argument
+is an optional hash reference and it contains key/values that can modify
+the behavior of C<prepend_file>. The rest of the argument list is the
+data to be written to the file and that is passed to C<write_file> as is
+(see that for allowed data).
+
+Only the C<binmode> and C<err_mode> options are supported. The
+C<write_file> call has the C<atomic> option set so you will always have
+a consistant file. See above for more about those options.
+
+C<prepend_file> is not exported by default, you need to import it
+explicitly.
+
+	use File::Slurp qw( prepend_file ) ;
+	prepend_file( $file, $header ) ;
+	prepend_file( $file, \@lines ) ;
+	prepend_file( $file, { binmode => 'raw:'}, $bin_data ) ;
+
 =head2 read_dir
 
 This sub reads all the file names from directory and returns them to
@@ -949,8 +1038,10 @@ the caller but C<.> and C<..> are removed by default.
 
 	my @files = read_dir( '/path/to/dir' ) ;
 
-The first argument is the path to the directory to read. The rest of the
-arguments are a list key/value options.
+The first argument is the path to the directory to read.  If the next
+argument is a hash reference, then it is used as the options.
+Otherwise the rest of the argument list are is used as key/value
+options.
 
 In list context C<read_dir> returns a list of the entries in the
 directory. In a scalar context it returns an array reference which has
@@ -988,6 +1079,6 @@ that requires B.pm which didn't get into core until 5.005.
 
 =head1 AUTHOR
 
-Uri Guttman, E<lt>uri@stemsystems.comE<gt>
+Uri Guttman, E<lt>uri AT stemsystems DOT comE<gt>
 
 =cut
