@@ -4,7 +4,7 @@ use warnings ;
 
 use lib qw(t) ;
 
-use File::Slurp qw( read_file write_file edit_file edit_file_lines ) ;
+use File::Slurp qw( read_file write_file :edit ) ;
 use Test::More ;
 
 use TestDriver ;

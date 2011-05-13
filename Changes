@@ -1,5 +1,11 @@
 Revision history File::Slurp
 
+9999.17	  Fri May 13 02:30:05 EDT 2011
+	- Added :std and :edit export tags
+	- Cleaned up EXPORT vars
+	- Documented importing edit_file and edit_file_lines
+	- Fixed some pod spelling
+
 9999.17	  Wed Apr 27 02:20:03 EDT 2011
 	- Requiring Perl 5.6.2 (first time older Perls were dropped)
 		This is because of use of the re 'taint' pragma

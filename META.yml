@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:                File-Slurp
-version:             9999.17
+version:             9999.18
 abstract:            Simple and Efficient Reading/Writing/Modifying of Complete Files
 license:             perl
 author:              
