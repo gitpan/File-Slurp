@@ -9,12 +9,13 @@ use Carp ;
 use Exporter ;
 use Fcntl qw( :DEFAULT ) ;
 use POSIX qw( :fcntl_h ) ;
+use Errno ;
 #use Symbol ;
 
 use vars qw( @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $VERSION ) ;
 @ISA = qw( Exporter ) ;
 
-$VERSION = '9999.18';
+$VERSION = '9999.19';
 
 my @std_export = qw(
 	read_file
@@ -222,6 +223,11 @@ sub read_file {
 
 		my $read_cnt = sysread( $read_fh, ${$buf_ref},
 				$size_left, length ${$buf_ref} ) ;
+
+# since we're using sysread Perl won't automatically restart the call
+# when interrupted by a signal.
+
+		next if $!{EINTR};
 
 		unless ( defined $read_cnt ) {
 
@@ -499,6 +505,11 @@ sub write_file {
 
 		my $write_cnt = syswrite( $write_fh, ${$buf_ref},
 				$size_left, $offset ) ;
+
+# since we're using syswrite Perl won't automatically restart the call
+# when interrupted by a signal.
+
+		next if $!{EINTR};
 
 		unless ( defined $write_cnt ) {
 
@@ -821,8 +832,8 @@ File::Slurp - Simple and Efficient Reading/Writing/Modifying of Complete Files
 
 # Here is a simple and fast way to load and save a simple config file
 # made of key=value lines.
-  my %conf = read_file( $file_name ) =~ /^(\w+)=(\.*)$/mg ;
-  write_file( $file_name, {atomic => 1}, map "$_=$conf{$_}\n", keys %conf ;
+  my %conf = read_file( $file_name ) =~ /^(\w+)=(.*)$/mg ;
+  write_file( $file_name, {atomic => 1}, map "$_=$conf{$_}\n", keys %conf ) ;
 
 # insert text at the beginning of a file
   prepend_file( 'filename', $text ) ;
@@ -1169,7 +1180,7 @@ equivalent calls to C<edit_file> and C<edit_file_lines>.
 	edit_file \&replace_foo, 'filename' ;
 	sub replace_foo { s/foo/bar/g }
 
-	perl -pi -e '$_ = '' if /foo/' filename
+	perl -pi -e '$_ = "" if /foo/' filename
 	use File::Slurp qw( edit_file_lines ) ;
 	use File::Slurp ;
 	edit_file_lines { $_ = '' if /foo/ } 'filename' ;

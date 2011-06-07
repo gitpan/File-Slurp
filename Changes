@@ -1,6 +1,14 @@
 Revision history File::Slurp
 
-9999.17	  Fri May 13 02:30:05 EDT 2011
+9999.19	  Tue Jun  7 04:06:06 EDT 2011
+	- Fixed use line in t/edit_file.t to import :edit first
+	  Thanks to paul
+	- read_file and write_file work even when interrupted by signals
+	  this includes a test for read_file interrupt
+	  Thanks to Andrew Danforth 
+	- Fixed bugs in the config synopsis example
+
+9999.18	  Fri May 13 02:30:05 EDT 2011
 	- Added :std and :edit export tags
 	- Cleaned up EXPORT vars
 	- Documented importing edit_file and edit_file_lines

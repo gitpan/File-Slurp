@@ -27,6 +27,7 @@ t/pod_coverage.t
 t/prepend_file.t
 t/pseudo.t
 t/read_dir.t
+t/signal.t
 t/slurp.t
 t/stdin.t
 t/stringify.t
